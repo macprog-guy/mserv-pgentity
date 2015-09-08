@@ -1,0 +1,52 @@
+{
+  "name": "mserv-pgentity",
+  "version": "0.2.0",
+  "description": "Error handling middleware for mserv.",
+  "keywords": [
+    "npm",
+    "mserv",
+    "amqp",
+    "microservice",
+    "microservices",
+    "error",
+    "exception",
+    "handling"
+  ],
+  "homepage": "https://github.com/macprog-guy/mserv-pgentity",
+  "main": "./index.js",
+  "scripts": {
+    "test": "NODE_ENV=test ./node_modules/.bin/mocha -R spec --harmony -t 5000 -u bdd ./test"
+  },
+  "author": {
+    "name": "Eric Methot",
+    "email": "eric@macprog.com",
+    "url": "https://github.com/macprog-guy/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/macprog-guy/mserv-pgentity.git"
+  },
+  "bugs": {
+    "url": "http://github.com/macprog-guy/mserv-pgentity/issues"
+  },
+  "license": "MIT",
+  "peerDeependencies": {
+    "mserv": "^0.2.0"
+  },
+  "devDependencies": {
+    "chai": "^3.2.0",
+    "co": "^4.6.0",
+    "mocha": "^2.2.5",
+    "mserv": "^0.2.2",
+    "mserv-context": "^0.2.2",
+    "mserv-validate": "^0.2.1"
+  },
+  "dependencies": {
+    "bluebird": "^2.9.34",
+    "case": "^1.2.1",
+    "joi": "^6.6.1",
+    "lodash": "^3.10.1",
+    "pg-promise": "^1.9.8",
+    "recase-keys": "^0.5.0"
+  }
+}
