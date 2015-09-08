@@ -5,12 +5,10 @@
   "keywords": [
     "npm",
     "mserv",
-    "amqp",
-    "microservice",
-    "microservices",
-    "error",
-    "exception",
-    "handling"
+    "active",
+    "record",
+    "orm",
+    "entity"
   ],
   "homepage": "https://github.com/macprog-guy/mserv-pgentity",
   "main": "./index.js",
@@ -37,9 +35,9 @@
     "chai": "^3.2.0",
     "co": "^4.6.0",
     "mocha": "^2.2.5",
-    "mserv": "^0.2.2",
+    "mserv": "^0.2.5",
     "mserv-context": "^0.2.2",
-    "mserv-validate": "^0.2.1"
+    "mserv-validate": "^0.2.5"
   },
   "dependencies": {
     "bluebird": "^2.9.34",
