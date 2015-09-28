@@ -19,7 +19,7 @@ module.exports = function(service, options) {
 
 	let PG = PGLib({
 		promiseLib: Promise,
-		extend: pgext,
+		extend: pgext
 		// query: function(e) {
 		// 	console.log([e.query, e.params])
 		// },
