@@ -46,4 +46,14 @@ module.exports = function(db) {
 				return (rows.length >= 1)? rows[0] : undefined
 			})
 	}
+
+	db.count = function(table, conds) {
+		let query = conds?
+			`select count(*) from ${table} where ${conds.join(' and ')}` :
+			`select count(*) from ${table}`
+		
+		return db.one(query).then(function(row){
+			return parseInt(row.count)
+		})
+	}
 }

@@ -59,9 +59,10 @@ module.exports = function(service, options) {
 		let table = options.table,
 			keys  = options.keys,
 			model = options.model,
+			scope = options.scope,
 			transform   = options.transform   || function(x){ return x },
 			convertCase = options.convertCase || false,
-			middleware  = _.merge(_.omit(options, 'table','keys','model','transform','convertCase','create','read','update','delete','middleware'), options.middleware || {})
+			middleware  = _.merge(_.omit(options, 'table','keys','model','transform','convertCase','create','read','update','delete','middleware','scope'), options.middleware || {})
 
 		transform = transform.bind(this)
 
@@ -76,7 +77,11 @@ module.exports = function(service, options) {
 				name: path + '.create',
 				descriptions: 'Creates a record from the provided values.',
 				handler: function*() {
-					let insert = SQLInsert(table, this.req, convertCase),
+
+					if (scope && !this.req[scope])
+						throw new Error('missingScope ' + scope)
+
+					let insert = SQLInsert(table, scope, this.req, convertCase),
 						record = yield pgCleansedQuery(insert, model, this.req, convertCase, true)
 
 					return transform(record)
@@ -102,10 +107,17 @@ module.exports = function(service, options) {
 					description: 'Fetch one or more ' + path + ' records by their ' + key + '.',
 					handler: function*() {
 
-						let id     = this.req[key],
-							values = Array.isArray(id)? id : [id],
-							select = SQLSelect(table, key, type, convertCase),
-							rows   = yield pgCleansedQuery(select, model, [values], convertCase, !Array.isArray(id))
+						if (scope && !this.req[scope])
+							throw new Error('missingScope ' + scope)
+
+						let id  = this.req[key],
+							one = !Array.isArray(id)
+
+						if (one) 
+							this.req[key] = [id]
+
+						let select = SQLSelect(table, scope, key, type, convertCase),
+							rows   = yield pgCleansedQuery(select, model, this.req, convertCase, one)
 
 			    		return transform(rows)
 					}
@@ -117,7 +129,26 @@ module.exports = function(service, options) {
 				action[validate] = {request: fetchByKeyModel}
 				service.action(action)
 			})
+
+			let action = _.merge(middleware || {}, {
+				name: path + '.fetch.all',
+				description: 'Fetch all records in the collection',
+				handler: function*(){
+
+					if (scope && !this.req[scope])
+						throw new Error('missingScope ' + scope)
+
+					let select = SQLSelect(table, scope, null, null, convertCase),
+						rows   = yield pgCleansedQuery(select, model, this.req, convertCase, false)
+
+					return transform(rows)
+				} 
+			})
+
+			service.action(action)
 		}
+
+
 
 
 		// ------------------------------------------------------------------------
@@ -133,7 +164,10 @@ module.exports = function(service, options) {
 				descriptions: 'Updates a record changing only fields that have been provided.',
 				handler: function*() {
 
-					let update = SQLUpdate(table, keys, this.req, convertCase),
+					if (scope && !this.req[scope])
+						throw new Error('missingScope ' + scope)
+
+					let update = SQLUpdate(table, scope, keys, this.req, convertCase),
 						record = yield pgCleansedQuery(update, model, this.req, convertCase, true)
 
 					return transform(record)
@@ -158,8 +192,11 @@ module.exports = function(service, options) {
 				descriptions: 'Deletes a record based on a key.',			
 				handler: function*() {
 
-					let del  = SQLDelete(table, keys, this.req, convertCase),
-						rows = pgCleansedQuery(del, model, this.req, convertCase, true)
+					if (scope && !this.req[scope])
+						throw new Error('missingScope ' + scope)
+
+					let del  = SQLDelete(table, scope, keys, this.req, convertCase),
+						rows = yield pgCleansedQuery(del, model, this.req, convertCase, true)
 
 					return transform(rows)
 				}
@@ -202,7 +239,7 @@ module.exports = function(service, options) {
 	// Statement Builders
 	// ------------------------------------------------------------------------
 
-	function SQLInsert(table, object, convertCase) {
+	function SQLInsert(table, scope, object, convertCase) {
 
 		let columns = [],
 			values  = []
@@ -216,38 +253,63 @@ module.exports = function(service, options) {
 	}
 
 
-	function SQLSelect(table, key, type, convertCase) {
-		let keyCol = convertCase? Case.snake(key) : key
-		return `select * from ${table} where ${key} = any(\$1::${type}[])`
+	function SQLSelect(table, scope, key, type, convertCase) {
+
+		let keyCol   = key && convertCase? Case.snake(key) : key,
+		    scopeCol = scope && convertCase? Case.snake(scope) : scope
+		    
+		if (!keyCol && !scopeCol)
+			return `select * from ${table}`
+
+		let base  = `select * from ${table} where `,
+			conds = []
+
+		if (scopeCol) 
+			conds.push(scopeCol + '=${'+scope+'}')
+
+		if (keyCol)   
+			conds.push(keyCol +' = any(${'+key+`}::${type}[])`)
+
+		return base + conds.join(' and ')
 	}
 
 
-	function SQLUpdate(table, keys, object, convertCase) {
+	function SQLUpdate(table, scope, keys, object, convertCase) {
 
 		for (let key in keys) {
 			if (object[key]) {
 
-				let assigns = _(object).omit(key).keys().map(function(prop){
+				let assigns = _(object).omit(key).omit(scope).keys().map(function(prop){
 					let column = convertCase? Case.snake(prop) : prop
 					return column + '=${'+prop+'}'
 				}).values()
 
-				let keyCol = convertCase? Case.snake(key) : key,
-				    keyCond = '${'+key+'}'
+				let keyCol    = convertCase? Case.snake(key) : key,
+					scopeCol  = scope && convertCase? Case.snake(scope) : scope,
+				    keyCond   = '${'+key+'}',
+				    scopeCond = scopeCol? '${'+scope+'}' : null
 
-				return `update ${table} set ${assigns} where ${keyCol}=${keyCond} returning ${table}.*`
+				return scopeCond?
+					`update ${table} set ${assigns} where ${scopeCol}=${scopeCond} and ${keyCol}=${keyCond} returning ${table}.*` :
+					`update ${table} set ${assigns} where ${keyCol}=${keyCond} returning ${table}.*`
 			}
 		}
 		return null
 	}	
 
 
-	function SQLDelete(table, keys, object, convertCase) {
+	function SQLDelete(table, scope, keys, object, convertCase) {
 		for (let key in keys) {
 			if (object[key]) {
-				let keyCol  = convertCase? Case.snake(key) : key,
-					keyCond = '${'+key+'}'
-				return `delete from ${table} where ${keyCol}=${keyCond}`
+
+				let keyCol    = convertCase? Case.snake(key) : key,
+					scopeCol  = scope && convertCase? Case.snake(scope) : scope,
+				    keyCond   = '${'+key+'}',
+				    scopeCond = scopeCol? '${'+scope+'}' : null
+
+				return scopeCond?
+					`delete from ${table} where ${scopeCol}=${scopeCond} and ${keyCol}=${keyCond}` :
+					`delete from ${table} where ${keyCol}=${keyCond}`
 			}
 		}
 		return null
