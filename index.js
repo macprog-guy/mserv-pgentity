@@ -86,9 +86,9 @@ module.exports = function(service, options) {
 			if (!compositeModel.isJoi && typeof compositeModel === 'object')
 				compositeModel = Joi.object().keys(compositeModel)
 
-			// Accept one model object or an array of model objects
-			// For the array, the request parameter is "objects".
-			let keys = {objects: Joi.array().single(true).items(compositeModel).required().options({stripUnknown:true})}
+			// Accept one model object or an array of model batch
+			// For the array, the request parameter is "batch".
+			let keys = {batch: Joi.array().single(true).items(compositeModel).required().options({stripUnknown:true})}
 			if (scope)
 				keys[scope] = model[scope].required()
 
@@ -264,13 +264,13 @@ module.exports = function(service, options) {
 						let self     = this,
 							req      = self.req || {},						
 							scopeVal = scope && self.req[scope],
-						    objects  = req.objects || [req]
+						    batch    = req.batch || [req]
 
 						// Check that we have the scope key
 						if (scope && !this.req[scope])
 							throw new Error('missingScope ' + scope)
 
-						let result = yield objects.map(function(o) {
+						let result = yield batch.map(function(o) {
 							return co(function*(){
 								try {
 									if (scope) {
@@ -285,7 +285,7 @@ module.exports = function(service, options) {
 							})
 						})
 
-						if (req.objects)
+						if (req.batch)
 							return result.map(errorObject.bind(this, 'insertFailed'))
 
 						// Take the first result if we have one
@@ -300,7 +300,6 @@ module.exports = function(service, options) {
 				})
 
 				action[validate] = {request: singleOrArrayOfModels(model)}
-				debug(action)
 				service.action(action)
 			}
 			catch(err) {
@@ -413,12 +412,12 @@ module.exports = function(service, options) {
 					let self     = this,
 						req      = self.req || {},
 						scopeVal = scope && req[scope],
-					    objects  = req.objects || [req]
+					    batch  = req.batch || [req]
 
 					if (scope && !req[scope])
 						throw new Error('missingScope ' + scope)
 
-					let result = yield objects.map(function(o) {
+					let result = yield batch.map(function(o) {
 						return co(function*(){
 							try {
 								if (scope) {
@@ -433,7 +432,7 @@ module.exports = function(service, options) {
 						})
 					})
 
-					if (req.objects)
+					if (req.batch)
 						return result.map(errorObject.bind(this, 'updateFailed'))
 
 					// Take the first result if we have one

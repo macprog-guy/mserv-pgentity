@@ -60,3 +60,29 @@ When creating entities there are more options:
 - `update` : if true the `<name>.update` action will be created.
 - `delete` : if true the `<name>.delete` action will be created.
 
+
+# Actions
+
+The following actions are generated for you when using mserv-pgentity. Note that all functions support
+both a single and batch modes. 
+
+- `<name>.create` : In single mode the argument should be an object that satisfies `model`. The result will be the created object or an exception will be thrown. In batch mode, the argument should be an object with a `batch` key whose value is an array of objects satisfying `model`. Returns an array of objects. Objects that could not be created will return `{error$}` with some details.
+
+- `<name>.fetch.by<Key>` : There will be one such action for each specified key. The argument would be an object with the `<key>` field that is either a single value or an array of values (single or batch). The result is either null, a single object or an array of objects.
+
+- `<name>.fetch.all` :  Takes no arguments and returns all of the records.
+
+
+- `<name>.update` :  In single mode the argument should be an object that satisfies `model`. The result will be the updated object or an exception will be thrown. In batch mode, the argument should be an object with a `batch` key whose value is an array of objects satisfying `model`. Returns an array of objects. Objects that could not be created will return `{error$}` with some details.
+
+- `<name>.delete.by<Key>` :  There will be one such action for each specified key. The argument would be an object with the `<key>` field that is either a single value or an array of values (single or batch). The result is always the number of deleted records.
+
+
+- `<name>.delete.all<Key>` : Only if scoped, Takes no arguments and deletes all of the records within the scope. The result is the number of deleted records.
+
+
+
+# Scoping
+
+Scoping was introduced to facilitate multi-tenancy. When scoped, all actions will require a key whose name is what was specified in the scope. For example if `scope: 'tenantId'` then all actions will require a `tenantId`. If the scope key is not present then a `missingScope` exception is thrown.
+

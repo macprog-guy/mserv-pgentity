@@ -132,7 +132,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	it('create should return multiple records', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
-			recs2 = yield service.invoke('todo.create', {objects:recs1})
+			recs2 = yield service.invoke('todo.create', {batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -148,7 +148,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	it('create should return one record and one error', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false}, {done:true}],
-			recs2 = yield service.invoke('todo.create', {objects:recs1})
+			recs2 = yield service.invoke('todo.create', {batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -197,7 +197,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	it('scoped create should return multiple records', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
-			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, objects:recs1})
+			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -379,7 +379,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		rec2.done = true,
 		rec3.done = true
 
-		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('todo.update', {batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
@@ -404,7 +404,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		rec2.name = null
 		rec3.done = true	
 
-		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('todo.update', {batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
@@ -471,7 +471,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		delete rec1.ownerId
 		delete rec2.ownerId
 
-		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2]})
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, batch:[rec1, rec2]})
 
 		should.exist(recs)
 		recs.length.should.equal(2)
@@ -500,7 +500,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		delete rec1.ownerId
 		delete rec2.ownerId
 
-		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
@@ -767,7 +767,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 	it('create should return multiple records', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
-			recs2 = yield service.invoke('todo.create', {objects:recs1})
+			recs2 = yield service.invoke('todo.create', {batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -783,7 +783,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 	it('create should return one record and one error', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false}, {done:true}],
-			recs2 = yield service.invoke('todo.create', {objects:recs1})
+			recs2 = yield service.invoke('todo.create', {batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -833,7 +833,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 	it('scoped create should return multiple records', wrappedTest(function*(){
 
 		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
-			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, objects:recs1})
+			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, batch:recs1})
 
 		should.exist(recs2)
 		recs2.length.should.equal(recs1.length)
@@ -1015,7 +1015,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 		rec2.done = true,
 		rec3.done = true
 
-		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('todo.update', {batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
@@ -1040,7 +1040,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 		rec2.name = null
 		rec3.done = true	
 
-		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('todo.update', {batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
@@ -1107,7 +1107,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 		delete rec1.ownerId
 		delete rec2.ownerId
 
-		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2]})
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, batch:[rec1, rec2]})
 
 		should.exist(recs)
 		recs.length.should.equal(2)
@@ -1136,7 +1136,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 		delete rec1.ownerId
 		delete rec2.ownerId
 
-		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2, rec3]})
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, batch:[rec1, rec2, rec3]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
