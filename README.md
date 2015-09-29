@@ -16,8 +16,7 @@ service.extend('enitity', entity, {
 	postgres: 'postgres://localhost/mydatabase'
 })
 
-service.ext.entity({
-	name: 'todo',
+service.ext.entity('todo', {
 	table: 'todos',
 	scope: 'userId',
 	keys: {id:'uuid'}
