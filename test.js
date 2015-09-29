@@ -11,15 +11,15 @@ var mserv    = require('mserv'),
 
 
 var TodoModel = {	
-	id:   Joi.string().guid(),
-	name: Joi.string(),
-	done: Joi.boolean()
+	id:      Joi.string().guid(),
+	name:    Joi.string().allow(null),
+	done:    Joi.boolean()
 }
 
 var ScopedTodoModel = {	
 	ownerId: Joi.number(),
-	id:   Joi.number(),
-	name: Joi.string(),
+	id:   Joi.string().guid(),
+	name: Joi.string().allow(null),
 	done: Joi.boolean()
 }
 
@@ -47,223 +47,18 @@ function wrappedTest(generatorFunc) {
 
 // ------------------------------------------------------------------------
 //
-// Without validate
+// Without mserv-validate
 //
 // ------------------------------------------------------------------------
 
-// describe('mserv-pgentity without mserv-validate', function(){
-
-// 	let service  = mserv({amqp:false}).extend('entity',entity),
-// 		postgres = service.ext.postgres()
-
-// 	service.ext.entity('todo', {
-// 		table:'todos',
-// 		keys: {id:'uuid'},
-// 		model: TodoModel,
-// 		create: true,
-// 		read: true,
-// 		update: true,
-// 		delete: true
-// 	})
-
-// 	before(function(done){
-// 		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-// 			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text, done boolean, created_at timestamp default current_timestamp)').nodeify(done)	
-// 		})		
-// 	})
-
-// 	after(function(done){
-// 		postgres.queryRaw('drop table todos').nodeify(done)
-// 	})
-
-// 	beforeEach(function(done){
-// 		postgres.queryRaw('truncate table todos').nodeify(done)
-// 	})
-
-
-// 	it('should create a record', wrappedTest(function*(){
-
-// 		let rec1 = {name: 'item #1', done:false},
-// 			rec2 = yield service.invoke('todo.create', rec1)
-			
-// 		rec2.id.should.exist 
-// 		rec2.name.should.equal(rec1.name)
-// 		rec2.done.should.equal(rec1.done)
-// 		rec2.should.not.have.property.createdAt
-// 	}))
-
-
-// 	it('should read the record', wrappedTest(function*(){
-
-// 		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
-// 			rec2 = yield service.invoke('todo.fetch.byId', {id:rec1.id})
-
-// 		rec2.should.eql(rec1)
-// 	}))
-
-// 	it('should fail to read the record', wrappedTest(function*(){
-// 		try {
-// 			let rec1 = yield service.invoke('todo.fetch.byId', {id:'not-a-uuid'})
-// 			throw new Error('Invoke did not throw')
-// 		}
-// 		catch(err){
-// 			if (err.message === 'Invoke did not throw')
-// 				throw err
-// 			_.pick(err,'name','message').should.eql({
-// 				name: 'error',
-// 				message: 'invalid input syntax for uuid: "not-a-uuid"'
-// 			})
-// 		}
-// 	}))
-
-
-// 	it('should update the record', wrappedTest(function*(){
-
-// 		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
-// 			rec2 = yield service.invoke('todo.update', {id:rec1.id, done:true})
-
-// 		rec2.id.should.equal(rec1.id)
-// 		rec2.name.should.equal(rec1.name)
-// 		rec2.done.should.equal(true)
-// 		rec2.should.not.have.property.createdAt
-// 	}))
-
-
-// 	it('should fail to update the record', wrappedTest(function*(){
-
-// 		let rec1 = yield service.invoke('todo.update', {/* no id */ done:true})
-// 		should.not.exist(rec1)
-// 	}))
-// })
-
-
-
-
-
-// ------------------------------------------------------------------------
-//
-// With validate
-//
-// ------------------------------------------------------------------------
-
-
-// describe('mserv-pgentity with mserv-validate', function(){
-
-// 	let service  = mserv({amqp:false}).use('validate',validate).extend('entity',entity),
-// 		postgres = service.ext.postgres()
-
-// 	service.ext.entity('todo', {
-// 		table:'todos',
-// 		keys: {id:'uuid'},
-// 		model: TodoModel,
-// 		create: true,
-// 		read: true,
-// 		update: true,
-// 		delete: true
-// 	})
-
-// 	before(function(done){
-// 		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-// 			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text, done boolean, created_at timestamp default current_timestamp)').nodeify(done)	
-// 		})		
-// 	})
-
-// 	after(function(done){
-// 		postgres.queryRaw('drop table todos').nodeify(done)
-// 	})
-
-// 	beforeEach(function(done){
-// 		postgres.queryRaw('truncate table todos').nodeify(done)
-// 	})
-
-
-// 	it('should create a record', wrappedTest(function*(){
-
-// 		let rec1 = {name: 'item #1', done:false},
-// 			rec2 = yield service.invoke('todo.create', rec1)
-			
-// 		rec2.id.should.exist 
-// 		rec2.name.should.equal(rec1.name)
-// 		rec2.done.should.equal(rec1.done)
-// 		rec2.should.not.have.property.createdAt
-// 	}))
-
-
-// 	it('should read the record', wrappedTest(function*(){
-
-// 		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
-// 			rec2 = yield service.invoke('todo.fetch.byId', {id:rec1.id})
-
-// 		rec2.should.eql([rec1])
-// 	}))
-
-// 	it('should fail to read the record', wrappedTest(function*(){
-// 		try {
-// 			let rec1 = yield service.invoke('todo.fetch.byId', {id:'not-a-uuid'})
-// 			throw new Error('Invoke did not throw')
-// 		}
-// 		catch(err){
-// 			if (err.message === 'Invoke did not throw')
-// 				throw err
-
-// 			_.pick(err,'name','message','errors').should.eql({
-// 				name: 'Error',
-// 				message: 'validationErrors',
-// 				errors: [{key:'id.0',value:'not-a-uuid',error:'notGUID'}]
-// 			})
-// 		}
-// 	}))
-
-
-// 	it('should update the record', wrappedTest(function*(){
-
-// 		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
-// 			rec2 = yield service.invoke('todo.update', {id:rec1.id, done:true})
-
-// 		rec2.id.should.equal(rec1.id)
-// 		rec2.name.should.equal(rec1.name)
-// 		rec2.done.should.equal(true)
-// 		rec2.should.not.have.property.createdAt
-// 	}))
-
-
-// 	it('should fail to update the record', wrappedTest(function*(){
-// 		try {
-// 			let rec1 = yield service.invoke('todo.update', {/* no id */ done:true})
-// 			throw new Error('Invoke did not throw')
-// 		}
-// 		catch(err) {
-// 			if (err.message === 'Invoke did not throw')
-// 				throw err
-
-// 			_.pick(err,'name','message','errors').should.eql({
-// 				name:'Error',
-// 				message:'validationErrors',
-// 				errors: [{key:'id',value:undefined,error:'required'}]
-// 			})
-// 		}
-// 	}))
-// })
-
-
-
-// ------------------------------------------------------------------------
-//
-// With scoping
-//
-// ------------------------------------------------------------------------
-
-
-
-describe('mserv-pgentity with tenant scoping', function(){
+describe('mserv-pgentity without mserv-validate', function(){
 
 	let service  = mserv({amqp:false}).extend('entity',entity),
 		postgres = service.ext.postgres()
 
 	service.ext.entity('todo', {
 		table:'todos',
-		scope: 'ownerId',
-		keys: {id:'int'},
+		keys: {id:'uuid'},
 		model: TodoModel,
 		create: true,
 		read: true,
@@ -271,18 +66,32 @@ describe('mserv-pgentity with tenant scoping', function(){
 		delete: true
 	})
 
+	service.ext.entity('scopedTodo', {
+		table:'scopedTodos',
+		scope:'ownerId',
+		keys: {id:'uuid'},
+		model: ScopedTodoModel,
+		create: true,
+		read: true,
+		update: true,
+		delete: true
+	})
+
+
 	before(function(done){
 		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-			postgres.queryRaw('create table if not exists todos (ownerId int not null, id  int not null, name text, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)	
+			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').then(function(){
+				postgres.queryRaw('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
+			})
 		})		
 	})
 
 	after(function(done){
-		postgres.queryRaw('drop table todos').nodeify(done)
+		postgres.queryRaw('drop table todos; drop table scopedTodos').nodeify(done)
 	})
 
 	beforeEach(function(done){
-		postgres.queryRaw('truncate table todos').nodeify(done)
+		postgres.queryRaw('truncate table todos; truncate table scopedTodos').nodeify(done)
 	})
 
 
@@ -290,86 +99,243 @@ describe('mserv-pgentity with tenant scoping', function(){
 	// Create
 	// ------------------------------------------------------------------------
 
+	it('create should return a record', wrappedTest(function*(){
 
-	it('should create a record', wrappedTest(function*(){
-
-		let rec1 = {ownerId:1, id: 1, name: 'item #1', done:false},
+		let rec1 = {name: 'item #1', done:false},
 			rec2 = yield service.invoke('todo.create', rec1)
-			
+		
+		should.exist(rec2)
 		rec2.id.should.exist 
+
+		// Check for equality of properties
 		rec2.name.should.equal(rec1.name)
 		rec2.done.should.equal(rec1.done)
+
+		// Our model does not have the createdAt column even though the DB does.
 		rec2.should.not.have.property.createdAt
 	}))
 
-	it('should throw a missing scope exception when inserting without scope', wrappedTest(function*(){
+	it('create should throw constraint violation', wrappedTest(function*(){
 
 		try {
-			let rec1 = {id: 1, name: 'item #1', done:false},
-				rec2 = yield service.invoke('todo.create', rec1)
-	
+			// mserv-validate not installed
+			yield service.invoke('todo.create', {done:false})
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message !== 'Invoke did not throw' && err.message !== 'missingScope ownerId')
+			if (err.message === 'Invoke did not throw')
 				throw err
-		}			
+		}
 	}))
+
+
+	it('create should return multiple records', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
+			recs2 = yield service.invoke('todo.create', {objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+		recs2[1].name.should.equal(recs1[1].name)
+		recs2[1].done.should.equal(recs1[1].done)
+	}))
+
+
+
+	it('create should return one record and one error', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false}, {done:true}],
+			recs2 = yield service.invoke('todo.create', {objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+		recs2[1].should.have.property.error$
+	}))
+
+
+	// ------------------------------------------------------------------------
+	// Create Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped create should return a record', wrappedTest(function*(){
+
+		let rec1 = {ownerId:1, name: 'item #1', done:false},
+			rec2 = yield service.invoke('scopedTodo.create', rec1)
+		
+		should.exist(rec2)
+		rec2.id.should.exist 
+
+		// Check for equality of properties
+		rec2.ownerId.should.equal(rec1.ownerId)
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(rec1.done)
+
+		// Our model does not have the createdAt column even though the DB does.
+		rec2.should.not.have.property.createdAt
+	}))
+
+	it('scoped create should throw missing scope', wrappedTest(function*(){
+
+		try {
+			// mserv-validate not installed
+			yield service.invoke('scopedTodo.create', {name:'item #2', done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+
+	it('scoped create should return multiple records', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
+			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].ownerId.should.equal(1)
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+
+		recs2[1].ownerId.should.equal(1)
+		recs2[1].name.should.equal(recs1[1].name)
+		recs2[1].done.should.equal(recs1[1].done)
+	}))
+
 
 
 	// ------------------------------------------------------------------------
 	// Read
 	// ------------------------------------------------------------------------
 
-	it('should return only one records', wrappedTest(function*(){
+	it('fetch.byId should return a record', wrappedTest(function*(){
 
-		yield postgres.queryRaw('insert into todos (ownerId, id, name) values ' +
-			[	
-				"(1, 1, 'Item #1')", 
-				"(1, 2, 'Item #2')",
-				"(1, 3, 'Item #3')",
-				"(2, 1, 'Item #1')", 
-				"(2, 2, 'Item #2')",
-				"(2, 3, 'Item #3')",
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.fetch.byId', {id:rec1.id})
 
-			].join(','))
-
-		let rec = yield service.invoke('todo.fetch.byId', {ownerId:1, id:2})
-
-		should.exist(rec)
-		rec.should.have.property.id
-
+		rec2.should.eql(rec1)
 	}))
 
-	it('should return only three records', wrappedTest(function*(){
+	it('fetch.byId should return many records', wrappedTest(function*(){
 
-		yield postgres.queryRaw('insert into todos (ownerId, id, name) values ' +
-			[	
-				"(1, 1, 'Item #1')", 
-				"(1, 2, 'Item #2')",
-				"(1, 3, 'Item #3')",
-				"(2, 1, 'Item #1')", 
-				"(2, 2, 'Item #2')",
-				"(2, 3, 'Item #3')",
-
-			].join(','))
-
-		let recs = yield service.invoke('todo.fetch.all', {ownerId:1})
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:true}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false}),
+			recs = yield service.invoke('todo.fetch.byId', {id:[rec1.id, rec2.id, rec3.id]})
 
 		should.exist(recs)
 		recs.length.should.equal(3)
+		
+		recs[0].name.should.equal(rec1.name)
+		recs[1].name.should.equal(rec2.name)
+		recs[2].name.should.equal(rec3.name)
 
+		recs[0].done.should.equal(rec1.done)
+		recs[1].done.should.equal(rec2.done)
+		recs[2].done.should.equal(rec3.done)
 	}))
 
 
-	it('should throw missing scope when reading without scope', wrappedTest(function*(){
+	it('fetch.byId should throw invalid input syntax for uuid', wrappedTest(function*(){
+		try {
+			let rec1 = yield service.invoke('todo.fetch.byId', {id:'not-a-uuid'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err){
+			if (err.message === 'Invoke did not throw')
+				throw err
+			_.pick(err,'name','message').should.eql({
+				name: 'error',
+				message: 'invalid input syntax for uuid: "not-a-uuid"'
+			})
+		}
+	}))
+
+
+	it('fetch.all should return many records', wrappedTest(function*(){
+
+		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
+
+		let recs = yield service.invoke('todo.fetch.all')
+
+		should.exist(recs)
+		recs.length.should.equal(3)		
+	}))
+
+
+
+	// ------------------------------------------------------------------------
+	// Read Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped fetchById should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.fetch.byId', {ownerId:1, id:rec1.id})
+
+		rec2.should.eql(rec1)
+	}))
+
+	it('scoped fetchById should return many records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #2', done:true}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false}),
+			recs = yield service.invoke('scopedTodo.fetch.byId', {ownerId:2, id:[rec1.id, rec2.id, rec3.id]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+		
+		recs[0].name.should.equal(rec1.name)
+		recs[1].name.should.equal(rec2.name)
+		recs[2].name.should.equal(rec3.name)
+
+		recs[0].done.should.equal(rec1.done)
+		recs[1].done.should.equal(rec2.done)
+		recs[2].done.should.equal(rec3.done)
+	}))
+
+
+	it('scoped fetchById should throw missingScope', wrappedTest(function*(){
+		try {
+			yield service.invoke('scopedTodo.fetch.byId', {id:'12345678-1234-1234-1234-123456789012'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err){
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+	it('scoped fetch.all should return many records', wrappedTest(function*(){
+
+		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
+
+		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:1})
+
+		should.exist(recs)
+		recs.length.should.equal(2)
+		recs[0].ownerId.should.equal(1)
+		recs[1].ownerId.should.equal(1)
+	}))
+
+	it('scoped fetch.all throw missingScope', wrappedTest(function*(){
 
 		try {
-			yield service.invoke('todo.fetch.byId', {id:1})	
+			yield service.invoke('scopedTodo.fetch.all')
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message !== 'Invoke did not throw' && err.message !== 'missingScope ownerId')
+			if (err.message === 'Invoke did not throw')
 				throw err
 		}
 	}))
@@ -379,86 +345,959 @@ describe('mserv-pgentity with tenant scoping', function(){
 	// Update
 	// ------------------------------------------------------------------------
 
-	it('should update only one record', wrappedTest(function*(){
+	it('update should return a record', wrappedTest(function*(){
 
-		yield postgres.queryRaw('insert into todos (ownerId, id, name) values ' +
-			[	
-				"(1, 1, 'Item #1')", 
-				"(1, 2, 'Item #2')",
-				"(1, 3, 'Item #3')",
-				"(2, 1, 'Item #1')", 
-				"(2, 2, 'Item #2')",
-				"(2, 3, 'Item #3')",
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.update', {id:rec1.id, done:true})
 
-			].join(','))
-
-		let rec1 = {ownerId:1, id: 1, name: 'The First', done:true},
-			rec2 = yield service.invoke('todo.update', rec1)
-			
-		rec2.id.should.exist 
+		rec2.id.should.equal(rec1.id)
 		rec2.name.should.equal(rec1.name)
-		rec2.done.should.equal(rec1.done)
-
-		let count = yield postgres.count('todos', ['done=true'])
-
-		count.should.equal(1)
+		rec2.done.should.equal(true)
+		rec2.should.not.have.property.createdAt
 	}))
 
 
-	it('should throw a missing scope when updating without scope', wrappedTest(function*(){
+	it('update should throw missingKey', wrappedTest(function*(){
 
 		try {
-			let rec1 = {id: 1, name: 'The First', done:true},
-				rec2 = yield service.invoke('todo.update', rec1)
-	
+			yield service.invoke('todo.update', {done:false})
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message !== 'Invoke did not throw' && err.message !== 'missingScope ownerId')
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
 				throw err
-		}			
-
+		}
 	}))
+
+	it('update should return multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		rec1.done = true,
+		rec2.done = true,
+		rec3.done = true
+
+		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[1].id.should.equal(rec2.id)
+		recs[2].id.should.equal(rec3.id)
+
+		recs[0].done.should.equal(true)
+		recs[1].done.should.equal(true)
+		recs[2].done.should.equal(true)
+	}))
+
+	it('update should return some records and some errors', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		rec1.done = true
+		rec2.done = true
+		rec2.name = null
+		rec3.done = true	
+
+		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[2].id.should.equal(rec3.id)
+
+		recs[0].done.should.equal(true)
+		recs[2].done.should.equal(true)
+
+		recs[1].should.have.property.error$
+	}))
+
+
+	// ------------------------------------------------------------------------
+	// Update Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped update should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.update', {ownerId:1, id:rec1.id, done:true})
+
+		rec2.id.should.equal(rec1.id)
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(true)
+		rec2.should.not.have.property.createdAt
+	}))
+
+	it('scoped update should throw missingScope', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.update', {id:'12345678-1234-1234-1234-123456789012', done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingScope ownerId')
+				throw err
+		}
+	}))
+
+	it('scoped update should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.update', {ownerId:3, done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('scoped update should return multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		rec1.done = true,
+		rec2.done = true,
+		rec3.done = true
+
+		delete rec1.ownerId
+		delete rec2.ownerId
+
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2]})
+
+		should.exist(recs)
+		recs.length.should.equal(2)
+
+		recs[0].ownerId.should.equal(1)
+		recs[0].id.should.equal(rec1.id)
+		recs[0].done.should.equal(true)
+
+		recs[1].ownerId.should.equal(1)
+		recs[1].id.should.equal(rec2.id)
+		recs[1].done.should.equal(true)
+	}))
+
+
+	it('scoped update should return some records and some errors', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		rec1.done = true
+		rec2.done = true
+		rec2.name = null
+		rec3.done = true	
+
+		delete rec1.ownerId
+		delete rec2.ownerId
+
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[0].done.should.equal(true)
+
+		recs[1].should.have.property.error$
+	}))	
+
 
 
 	// ------------------------------------------------------------------------
 	// Delete
 	// ------------------------------------------------------------------------
 
-	it('should delete only one record', wrappedTest(function*(){
 
-		yield postgres.queryRaw('insert into todos (ownerId, id, name) values ' +
-			[	
-				"(1, 1, 'Item #1')", 
-				"(1, 2, 'Item #2')",
-				"(1, 3, 'Item #3')",
-				"(2, 1, 'Item #1')", 
-				"(2, 2, 'Item #2')",
-				"(2, 3, 'Item #3')",
+	it('delete.byId should delete single records', wrappedTest(function*(){
 
-			].join(','))
+		let rec1  = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			count = yield service.invoke('todo.delete.byId', {id:rec1.id})
 
-		yield service.invoke('todo.delete', {ownerId:1, id:1})
-			
-		let count = yield postgres.count('todos')
-
-		count.should.equal(5)
+		count.should.equal(1)
 	}))
 
 
-	it('should throw a missing scope when deleting without scope', wrappedTest(function*(){
+	it('delete.byId should throw missingKey', wrappedTest(function*(){
 
 		try {
-			yield service.invoke('todo.delete', {id:1})	
+			yield service.invoke('todo.delete.byId', {done:false})
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message !== 'Invoke did not throw' && err.message !== 'missingScope ownerId')
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
 				throw err
-		}			
+		}
+	}))
 
+	it('delete.byId should delete multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		let count = yield service.invoke('todo.delete.byId', {id:[rec1.id, rec2.id, rec3.id]})
+
+		count.should.equal(3)
+	}))
+
+	it('delete.byId should ignore unknown keys', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false})
+
+		let count = yield service.invoke('todo.delete.byId', {id:[
+			rec1.id, 
+			'12345678-1234-1234-1234-123456789012',
+			rec2.id, 
+			'12345678-1234-4567-8901-123456789012'
+		]})
+
+		count.should.equal(2)
+	}))
+
+	
+
+
+	// ------------------------------------------------------------------------
+	// Delete Scoped
+	// ------------------------------------------------------------------------
+
+
+	it('scoped delete.byId should delete single records', wrappedTest(function*(){
+
+		let rec1  = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:rec1.id})
+
+		count.should.equal(1)
+	}))
+
+	it('scoped delete.byId should throw missingScope', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.delete.byId', {id:'12345678-1234-1234-1234-123456789012'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingScope ownerId')
+				throw err
+		}
+	}))
+
+	it('scoped delete.byId should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.delete.byId', {ownerId:1})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('scoped delete.byId should only delete records within scope', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false}),
+			rec4 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false}),
+			rec5 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[rec1.id, rec2.id, rec3.id, rec4.id, rec5.id]})
+		count.should.equal(3)
+
+		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:2})
+		recs.length.should.equal(2)
+	}))
+
+	it('scoped delete.byId should ignore unknown ids', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[
+			rec1.id, 
+			'12345678-1234-1234-1234-123456789012',
+			rec2.id, 
+			'12345678-1234-4567-8901-123456789012',
+		]})
+
+		count.should.equal(2)
+	}))
+
+
+	it('scoped delete.all should only delete records within scope', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false}),
+			rec4 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #1', done:false}),
+			rec5 = yield service.invoke('scopedTodo.create', {ownerId:3, name: 'item #2', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.all', {ownerId:1})
+
+		count.should.equal(3)
+	}))
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ------------------------------------------------------------------------
+//
+// WITH mserv-validate
+//
+// ------------------------------------------------------------------------
+
+describe('mserv-pgentity with mserv-validate', function(){
+
+	let service  = mserv({amqp:false}).use('validate',validate).extend('entity',entity),
+		postgres = service.ext.postgres()
+
+	service.ext.entity('todo', {
+		table:'todos',
+		keys: {id:'uuid'},
+		model: TodoModel,
+		create: true,
+		read: true,
+		update: true,
+		delete: true
+	})
+
+	service.ext.entity('scopedTodo', {
+		table:'scopedTodos',
+		scope:'ownerId',
+		keys: {id:'uuid'},
+		model: ScopedTodoModel,
+		create: true,
+		read: true,
+		update: true,
+		delete: true
+	})
+
+
+	before(function(done){
+		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
+			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').then(function(){
+				postgres.queryRaw('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
+			})
+		})		
+	})
+
+	after(function(done){
+		postgres.queryRaw('drop table todos; drop table scopedTodos').nodeify(done)
+	})
+
+	beforeEach(function(done){
+		postgres.queryRaw('truncate table todos; truncate table scopedTodos').nodeify(done)
+	})
+
+
+	// ------------------------------------------------------------------------
+	// Create
+	// ------------------------------------------------------------------------
+
+	it('create should return a record', wrappedTest(function*(){
+
+		let rec1 = {name: 'item #1', done:false},
+			rec2 = yield service.invoke('todo.create', rec1)
+		
+		should.exist(rec2)
+		rec2.id.should.exist 
+
+		// Check for equality of properties
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(rec1.done)
+
+		// Our model does not have the createdAt column even though the DB does.
+		rec2.should.not.have.property.createdAt
+	}))
+
+	it('create should throw constraint violation', wrappedTest(function*(){
+
+		try {
+			// mserv-validate not installed
+			yield service.invoke('todo.create', {done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+
+	it('create should return multiple records', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
+			recs2 = yield service.invoke('todo.create', {objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+		recs2[1].name.should.equal(recs1[1].name)
+		recs2[1].done.should.equal(recs1[1].done)
 	}))
 
 
 
+	it('create should return one record and one error', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false}, {done:true}],
+			recs2 = yield service.invoke('todo.create', {objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+		recs2[1].should.have.property.error$
+
+	}))
+
+
+	// ------------------------------------------------------------------------
+	// Create Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped create should return a record', wrappedTest(function*(){
+
+		let rec1 = {ownerId:1, name: 'item #1', done:false},
+			rec2 = yield service.invoke('scopedTodo.create', rec1)
+		
+		should.exist(rec2)
+		rec2.id.should.exist 
+
+		// Check for equality of properties
+		rec2.ownerId.should.equal(rec1.ownerId)
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(rec1.done)
+
+		// Our model does not have the createdAt column even though the DB does.
+		rec2.should.not.have.property.createdAt
+	}))
+
+	it('scoped create should throw missing scope', wrappedTest(function*(){
+
+		try {
+			// mserv-validate not installed
+			yield service.invoke('scopedTodo.create', {name:'item #2', done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+
+	it('scoped create should return multiple records', wrappedTest(function*(){
+
+		let recs1 = [{name: 'item #1', done:false},{name: 'item #2', done:true}],
+			recs2 = yield service.invoke('scopedTodo.create', {ownerId:1, objects:recs1})
+
+		should.exist(recs2)
+		recs2.length.should.equal(recs1.length)
+
+		recs2[0].ownerId.should.equal(1)
+		recs2[0].name.should.equal(recs1[0].name)
+		recs2[0].done.should.equal(recs1[0].done)
+
+		recs2[1].ownerId.should.equal(1)
+		recs2[1].name.should.equal(recs1[1].name)
+		recs2[1].done.should.equal(recs1[1].done)
+	}))
+
+
+
+	// ------------------------------------------------------------------------
+	// Read
+	// ------------------------------------------------------------------------
+
+	it('fetch.byId should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.fetch.byId', {id:rec1.id})
+
+		rec2.should.eql(rec1)
+	}))
+
+	it('fetch.byId should return many records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:true}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false}),
+			recs = yield service.invoke('todo.fetch.byId', {id:[rec1.id, rec2.id, rec3.id]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+		
+		recs[0].name.should.equal(rec1.name)
+		recs[1].name.should.equal(rec2.name)
+		recs[2].name.should.equal(rec3.name)
+
+		recs[0].done.should.equal(rec1.done)
+		recs[1].done.should.equal(rec2.done)
+		recs[2].done.should.equal(rec3.done)
+	}))
+
+
+	it('fetch.byId should throw invalid input syntax for uuid', wrappedTest(function*(){
+		try {
+			let rec1 = yield service.invoke('todo.fetch.byId', {id:'not-a-uuid'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err){
+			if (err.message === 'Invoke did not throw')
+				throw err
+			_.pick(err,'name','message').should.eql({
+				name: 'Error',
+				message: 'validationErrors'
+			})
+		}
+	}))
+
+
+	it('fetch.all should return many records', wrappedTest(function*(){
+
+		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
+
+		let recs = yield service.invoke('todo.fetch.all')
+
+		should.exist(recs)
+		recs.length.should.equal(3)		
+	}))
+
+
+
+	// ------------------------------------------------------------------------
+	// Read Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped fetchById should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.fetch.byId', {ownerId:1, id:rec1.id})
+
+		rec2.should.eql(rec1)
+	}))
+
+	it('scoped fetchById should return many records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #2', done:true}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false}),
+			recs = yield service.invoke('scopedTodo.fetch.byId', {ownerId:2, id:[rec1.id, rec2.id, rec3.id]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+		
+		recs[0].name.should.equal(rec1.name)
+		recs[1].name.should.equal(rec2.name)
+		recs[2].name.should.equal(rec3.name)
+
+		recs[0].done.should.equal(rec1.done)
+		recs[1].done.should.equal(rec2.done)
+		recs[2].done.should.equal(rec3.done)
+	}))
+
+
+	it('scoped fetchById should throw missingScope', wrappedTest(function*(){
+		try {
+			yield service.invoke('scopedTodo.fetch.byId', {id:'12345678-1234-1234-1234-123456789012'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err){
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+	it('scoped fetch.all should return many records', wrappedTest(function*(){
+
+		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
+
+		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:1})
+
+		should.exist(recs)
+		recs.length.should.equal(2)
+		recs[0].ownerId.should.equal(1)
+		recs[1].ownerId.should.equal(1)
+	}))
+
+	it('scoped fetch.all throw missingScope', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.fetch.all')
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw')
+				throw err
+		}
+	}))
+
+
+	// ------------------------------------------------------------------------
+	// Update
+	// ------------------------------------------------------------------------
+
+	it('update should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.update', {id:rec1.id, done:true})
+
+		rec2.id.should.equal(rec1.id)
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(true)
+		rec2.should.not.have.property.createdAt
+	}))
+
+
+	it('update should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('todo.update', {done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('update should return multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		rec1.done = true,
+		rec2.done = true,
+		rec3.done = true
+
+		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[1].id.should.equal(rec2.id)
+		recs[2].id.should.equal(rec3.id)
+
+		recs[0].done.should.equal(true)
+		recs[1].done.should.equal(true)
+		recs[2].done.should.equal(true)
+	}))
+
+	it('update should return some records and some errors', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		rec1.done = true
+		rec2.done = true
+		rec2.name = null
+		rec3.done = true	
+
+		let recs = yield service.invoke('todo.update', {objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[2].id.should.equal(rec3.id)
+
+		recs[0].done.should.equal(true)
+		recs[2].done.should.equal(true)
+
+		recs[1].should.have.property.error$
+	}))
+
+
+	// ------------------------------------------------------------------------
+	// Update Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped update should return a record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.update', {ownerId:1, id:rec1.id, done:true})
+
+		rec2.id.should.equal(rec1.id)
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(true)
+		rec2.should.not.have.property.createdAt
+	}))
+
+	it('scoped update should throw missingScope', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.update', {id:'12345678-1234-1234-1234-123456789012', done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingScope ownerId')
+				throw err
+		}
+	}))
+
+	it('scoped update should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.update', {ownerId:3, done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('scoped update should return multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		rec1.done = true,
+		rec2.done = true,
+		rec3.done = true
+
+		delete rec1.ownerId
+		delete rec2.ownerId
+
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2]})
+
+		should.exist(recs)
+		recs.length.should.equal(2)
+
+		recs[0].ownerId.should.equal(1)
+		recs[0].id.should.equal(rec1.id)
+		recs[0].done.should.equal(true)
+
+		recs[1].ownerId.should.equal(1)
+		recs[1].id.should.equal(rec2.id)
+		recs[1].done.should.equal(true)
+	}))
+
+
+	it('scoped update should return some records and some errors', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		rec1.done = true
+		rec2.done = true
+		rec2.name = null
+		rec3.done = true	
+
+		delete rec1.ownerId
+		delete rec2.ownerId
+
+		let recs = yield service.invoke('scopedTodo.update', {ownerId:1, objects:[rec1, rec2, rec3]})
+
+		should.exist(recs)
+		recs.length.should.equal(3)
+
+		recs[0].id.should.equal(rec1.id)
+		recs[0].done.should.equal(true)
+
+		recs[1].should.have.property.error$
+	}))	
+
+
+
+	// ------------------------------------------------------------------------
+	// Delete
+	// ------------------------------------------------------------------------
+
+
+	it('delete.byId should delete single records', wrappedTest(function*(){
+
+		let rec1  = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			count = yield service.invoke('todo.delete.byId', {id:rec1.id})
+
+		count.should.equal(1)
+	}))
+
+
+	it('delete.byId should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('todo.delete.byId', {done:false})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('delete.byId should delete multiple records', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false}),
+			rec3 = yield service.invoke('todo.create', {name: 'item #3', done:false})
+
+		let count = yield service.invoke('todo.delete.byId', {id:[rec1.id, rec2.id, rec3.id]})
+
+		count.should.equal(3)
+	}))
+
+	it('delete.byId should ignore unknown keys', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
+			rec2 = yield service.invoke('todo.create', {name: 'item #2', done:false})
+
+		let count = yield service.invoke('todo.delete.byId', {id:[
+			rec1.id, 
+			'12345678-1234-1234-1234-123456789012',
+			rec2.id, 
+			'12345678-1234-4567-8901-123456789012'
+		]})
+
+		count.should.equal(2)
+	}))
+
+	
+
+
+	// ------------------------------------------------------------------------
+	// Delete Scoped
+	// ------------------------------------------------------------------------
+
+
+	it('scoped delete.byId should delete single records', wrappedTest(function*(){
+
+		let rec1  = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:rec1.id})
+
+		count.should.equal(1)
+	}))
+
+	it('scoped delete.byId should throw validationErrors', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.delete.byId', {id:'12345678-1234-1234-1234-123456789012'})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'validationErrors')
+				throw err
+		}
+	}))
+
+	it('scoped delete.byId should throw missingKey', wrappedTest(function*(){
+
+		try {
+			yield service.invoke('scopedTodo.delete.byId', {ownerId:1})
+			throw new Error('Invoke did not throw')
+		}
+		catch(err) {
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+				throw err
+		}
+	}))
+
+	it('scoped delete.byId should only delete records within scope', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false}),
+			rec4 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false}),
+			rec5 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #3', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[rec1.id, rec2.id, rec3.id, rec4.id, rec5.id]})
+		count.should.equal(3)
+
+		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:2})
+		recs.length.should.equal(2)
+	}))
+
+	it('scoped delete.byId should ignore unknown ids', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[
+			rec1.id, 
+			'12345678-1234-1234-1234-123456789012',
+			rec2.id, 
+			'12345678-1234-4567-8901-123456789012',
+		]})
+
+		count.should.equal(2)
+	}))
+
+
+	it('scoped delete.all should only delete records within scope', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #1', done:false}),
+			rec2 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #2', done:false}),
+			rec3 = yield service.invoke('scopedTodo.create', {ownerId:1, name: 'item #3', done:false}),
+			rec4 = yield service.invoke('scopedTodo.create', {ownerId:2, name: 'item #1', done:false}),
+			rec5 = yield service.invoke('scopedTodo.create', {ownerId:3, name: 'item #2', done:false})
+
+		let count = yield service.invoke('scopedTodo.delete.all', {ownerId:1})
+
+		count.should.equal(3)
+	}))
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

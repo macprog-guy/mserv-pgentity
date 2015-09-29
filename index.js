@@ -1,9 +1,11 @@
 'use strict'
 
 var Promise = require('bluebird'),
+	debug   = require('debug')('mserv-pgentity'),
 	recase  = require('recase-keys'),
 	Case    = require('case'),
 	Joi     = require('joi'),
+	co      = require('co'),
 	PGLib   = require('pg-promise'),
 	pgext   = require('./utils/pgext'),
 	_       = require('lodash')
@@ -22,7 +24,7 @@ module.exports = function(service, options) {
 		extend: pgext
 		// query: function(e) {
 		// 	console.log([e.query, e.params])
-		// },
+		// }
 		// error: function(err, e) {
 		// 	console.log(err)
 		// 	if (e) {
@@ -56,15 +58,195 @@ module.exports = function(service, options) {
 		if (!postgres)
 			throw new Error('Postgres options is not defined')
 
-		let table = options.table,
-			keys  = options.keys,
-			model = options.model,
-			scope = options.scope,
-			transform   = options.transform   || function(x){ return x },
-			convertCase = options.convertCase || false,
-			middleware  = _.merge(_.omit(options, 'table','keys','model','transform','convertCase','create','read','update','delete','middleware','scope'), options.middleware || {})
+		let table       = options.table,
+			keys        = options.keys,
+			model       = options.model,
+			scope       = options.scope,
+			fieldCase   = options.fieldCase,
+			convertCase = Case[fieldCase || 'snake'],
+			middleware  = _.merge(_.omit(options, 'table','scope','keys','model','transform','fieldCase','create','read','update','delete','middleware'), options.middleware || {})
 
-		transform = transform.bind(this)
+		/**
+
+		 Returns a Joi model that accepts the input model or an object with an 'objects' key 
+		 whose value is an array of input models.
+
+		 @param {Joi} model - input model is either a Joi model or a plain object whose keys are Joi models.
+		 @returns {Joi} 
+
+		 @api private
+
+		 */
+
+		function singleOrArrayOfModels(model) {
+
+			let compositeModel = model
+
+			// Convert the model to a Joi object
+			if (!compositeModel.isJoi && typeof compositeModel === 'object')
+				compositeModel = Joi.object().keys(compositeModel)
+
+			// Accept one model object or an array of model objects
+			// For the array, the request parameter is "objects".
+			let keys = {objects: Joi.array().single(true).items(compositeModel).required().options({stripUnknown:true})}
+			if (scope)
+				keys[scope] = model[scope].required()
+
+			return Joi.alternatives().try([
+				Joi.object().keys(keys),
+				model
+			])
+		}
+
+		/**
+
+		 Returns template parameter strings '${key} given key'
+
+		 @param   {String} k - key to be used in parameter string
+		 @returns {String}
+
+		 */
+		function templateParam(k) {
+			return '${'+k+'}' 
+		}
+
+		/**
+
+		 Returns 'key = ${key}' given key.
+
+		 @param   {String} k - key to be used in the assignment
+		 @returns {String}
+
+		 */
+		function templateAssign(k) {
+			return convertCase(k) + '=' + templateParam(k)
+		}
+
+
+		/**
+
+		 Return an insert statement using only the objects values.
+
+		 @return {String} postgres insert statement.
+		 @api private
+
+		 */
+		function SQLInsert(object) {
+
+			let keys    = _.keys(object),
+				columns = _.map(keys, convertCase),
+				values  = _.map(keys, templateParam)
+
+			return `insert into ${table} (${columns}) values (${values}) returning *`
+		}
+
+
+		/**
+
+		 Return a select statement using the specified scope and key fields.
+
+		 @return {String} postgres select statement.
+		 @api private
+
+		 */
+		function SQLSelect(scope, key, keyType, values) {
+
+			let conds = []
+
+			if (scope) conds.push(templateAssign(scope))
+			if (key)   conds.push(convertCase(key) +' = any(${'+key+'}::'+keyType+'[])')
+
+			return (conds.length)?
+				`select * from ${table} where ${conds.join(' and ')}` :
+				`select * from ${table}`
+		}
+
+
+		/**
+
+		 Return an update statement using the object fields and values only.
+
+		 @return {String} postgres select statement.
+		 @api private
+
+		 */
+		function SQLUpdate(object) {
+
+			for (var key in keys) {
+				if (object[key]) {
+
+					let assigns = _(object).omit(key,scope).keys().map(templateAssign).values(),
+						conds   = [templateAssign(key)]
+						
+					if (scope)
+						conds.unshift(templateAssign(scope))
+
+					return `update ${table} set ${assigns} where ${conds.join(' and ')} returning *`
+				}
+			}
+			throw new Error('missingKey')
+		}
+
+
+
+		/**
+
+		 Return a delete statement using the one of the keys and the scope
+
+		 @return {String} postgres select statement.
+		 @api private
+
+		 */
+		function SQLDelete(scope, key, keyType) {
+
+			let conds = []
+
+			if (key)
+				conds.push(convertCase(key) +' = any(${'+key+'}::'+keyType+'[])')
+
+			if (scope)
+				conds.unshift(templateAssign(scope))
+
+			return `delete from ${table} where ${conds.join(' and ')}`
+		}
+
+
+		/**
+
+		 Processes a query and converts the returned values using the Joi model.
+
+		 @return {String} postgres select statement.
+		 @api private
+
+		 */
+		function* SQLRunQuery(sql, object, single) {
+			
+			debug({sql, object, single})
+
+			if (sql.slice(0,6).toLowerCase() === 'delete') {
+				let rawResult = yield postgres.query(sql,object,'result')
+				return rawResult.rowCount
+			}
+
+			let rows = yield postgres.anyCamelized(sql, object).map(function(object){
+				return Joi.validate(object, model, {stripUnknown:true}).value	
+			})
+			
+			return single && rows.length >= 1? rows[0] : rows
+		}
+
+
+		/**
+
+		 Returns an object in place of an Error.
+
+		 */
+		function errorObject(message, object) {
+			if (object instanceof Error)
+				return {error$:{message, error:object}}
+			return object
+		}
+
 
 
 		// ------------------------------------------------------------------------
@@ -73,24 +255,58 @@ module.exports = function(service, options) {
 
 		if (options.create) {
 
-			let action = _.merge(middleware || {}, {
-				name: path + '.create',
-				descriptions: 'Creates a record from the provided values.',
-				handler: function*() {
+			try {
+				let action = _.merge(middleware || {}, {
+					name: path + '.create',
+					descriptions: 'Creates one or more records from the provided values.',
+					handler: function*() {
 
-					if (scope && !this.req[scope])
-						throw new Error('missingScope ' + scope)
+						let self     = this,
+							req      = self.req || {},						
+							scopeVal = scope && self.req[scope],
+						    objects  = req.objects || [req]
 
-					let insert = SQLInsert(table, scope, this.req, convertCase),
-						record = yield pgCleansedQuery(insert, model, this.req, convertCase, true)
+						// Check that we have the scope key
+						if (scope && !this.req[scope])
+							throw new Error('missingScope ' + scope)
 
-					return transform(record)
-				}
-			})
+						let result = yield objects.map(function(o) {
+							return co(function*(){
+								try {
+									if (scope) {
+										o = _.clone(o)
+										o[scope] = scopeVal
+									}
+									return yield SQLRunQuery(SQLInsert(o), o, true)
+								}
+								catch(error) {
+									return error
+								}
+							})
+						})
 
-			action[validate] = {request: model}
+						if (req.objects)
+							return result.map(errorObject.bind(this, 'insertFailed'))
 
-			service.action(action)
+						// Take the first result if we have one
+						result = result.length? result[0] : null
+
+						// Throw if it's an error
+						if (result instanceof Error)
+							throw result
+
+						return  result
+					}
+				})
+
+				action[validate] = {request: singleOrArrayOfModels(model)}
+				debug(action)
+				service.action(action)
+			}
+			catch(err) {
+				console.error(err)
+				throw err
+			}
 		}
 
 
@@ -100,52 +316,84 @@ module.exports = function(service, options) {
 
 		if (options.read) {
 
-			_.each(keys, function(type, key){
+			try {
 
-				let action = _.merge(middleware || {}, {
-					name: path + '.fetch.' + Case.camel('by-'+key),
-					description: 'Fetch one or more ' + path + ' records by their ' + key + '.',
-					handler: function*() {
+				// Create a fetch.byKey for each key
+				_.each(keys, function(type, key){					
 
-						if (scope && !this.req[scope])
-							throw new Error('missingScope ' + scope)
+					let action = _.merge(middleware || {}, {
+						name: path + '.fetch.' + Case.camel('by-'+key),
+						description: 'Fetch one or more ' + path + ' records by ' + key + '.',
+						handler: function*() {
 
-						let id  = this.req[key],
-							one = !Array.isArray(id)
+							let req = this.req || {},
+								keys   = req[key],
+								single = !Array.isArray(keys),
+								object = {}
 
-						if (one) 
-							this.req[key] = [id]
+							if (scope && !req[scope])
+								throw new Error('missingScope ' + scope)
 
-						let select = SQLSelect(table, scope, key, type, convertCase),
-							rows   = yield pgCleansedQuery(select, model, this.req, convertCase, one)
+							object[key] = single? [keys] : keys
+							if (scope)
+								object[scope] = req[scope]
 
-			    		return transform(rows)
-					}
+							let result = yield SQLRunQuery(SQLSelect(scope, key, type), object, single)
+
+							if (result instanceof Error)
+								throw result
+
+							return result
+						}
+					})
+
+					let fetchModel = {}
+
+					// Make the key take ether a value or an array of values
+					fetchModel[key] = Joi.alternatives().try([
+						Joi.array().items( model[key] ).required(),
+						model[key].required()
+					])
+
+					// Make the scope mandatory if specified
+					if (scope) fetchModel[scope] = model[scope].required()
+
+					action[validate] = {request:fetchModel}
+					service.action(action)
 				})
 
-				let fetchByKeyModel  = {}
-				fetchByKeyModel[key] = Joi.array().single(true).items( model[key] ).required().options({stripUnknown:false})
 
-				action[validate] = {request: fetchByKeyModel}
+				// fetch.all
+				let action = _.merge(middleware || {}, {
+					name: path + '.fetch.all',
+					description: 'Fetch all records in the collection',
+					handler: function*(){
+
+						let req    = this.req || {},
+							object = {}
+
+						if (scope && !req[scope])
+							throw new Error('missingScope ' + scope)
+
+						if (scope)
+							object[scope] = req[scope]
+
+						return yield SQLRunQuery(SQLSelect(scope), object, false)
+					} 
+				})
+
+				if (scope) {
+					let fetchModel = {}
+					fetchModel[scope] = model[scope].required()
+					action[validate]  = {request:fetchModel}
+				}
+
 				service.action(action)
-			})
-
-			let action = _.merge(middleware || {}, {
-				name: path + '.fetch.all',
-				description: 'Fetch all records in the collection',
-				handler: function*(){
-
-					if (scope && !this.req[scope])
-						throw new Error('missingScope ' + scope)
-
-					let select = SQLSelect(table, scope, null, null, convertCase),
-						rows   = yield pgCleansedQuery(select, model, this.req, convertCase, false)
-
-					return transform(rows)
-				} 
-			})
-
-			service.action(action)
+			}
+			catch(err) {
+				console.error(err.stack)
+				throw err
+			}
 		}
 
 
@@ -157,24 +405,49 @@ module.exports = function(service, options) {
 
 		if (options.update) {
 
-			let updateModel = Joi.object().keys( model ).or(Object.keys(keys))
-
 			let action = _.merge(middleware || {}, {
 				name: path + '.update',
 				descriptions: 'Updates a record changing only fields that have been provided.',
 				handler: function*() {
 
-					if (scope && !this.req[scope])
+					let self     = this,
+						req      = self.req || {},
+						scopeVal = scope && req[scope],
+					    objects  = req.objects || [req]
+
+					if (scope && !req[scope])
 						throw new Error('missingScope ' + scope)
 
-					let update = SQLUpdate(table, scope, keys, this.req, convertCase),
-						record = yield pgCleansedQuery(update, model, this.req, convertCase, true)
+					let result = yield objects.map(function(o) {
+						return co(function*(){
+							try {
+								if (scope) {
+									o = _.clone(o)
+									o[scope] = scopeVal
+								}
+								return yield SQLRunQuery(SQLUpdate(o), o, true)
+							}
+							catch(error) {
+								return error
+							}
+						})
+					})
 
-					return transform(record)
+					if (req.objects)
+						return result.map(errorObject.bind(this, 'updateFailed'))
+
+					// Take the first result if we have one
+					result = result.length? result[0] : null
+
+					// Throw if it's an error
+					if (result instanceof Error)
+						throw result
+
+					return  result
 				}
 			})
 
-			action[validate] = { request: updateModel }
+			action[validate] = { request: singleOrArrayOfModels(model) }
 			service.action(action)
 		}
 
@@ -185,133 +458,89 @@ module.exports = function(service, options) {
 
 		if (options.delete) {
 
-			let deleteModel = Joi.object().keys( model ).or(Object.keys(keys))
+			try {
 
-			let action = _.merge(middleware || {}, {
-				name: path + '.delete',
-				descriptions: 'Deletes a record based on a key.',			
-				handler: function*() {
+				// Create a fetch.byKey for each key
+				_.each(keys, function(type, key){					
 
-					if (scope && !this.req[scope])
-						throw new Error('missingScope ' + scope)
+					let action = _.merge(middleware || {}, {
+						name: path + '.delete.' + Case.camel('by-'+key),
+						description: 'Deletes one or more ' + path + ' records by ' + key + '.',
+						handler: function*() {
 
-					let del  = SQLDelete(table, scope, keys, this.req, convertCase),
-						rows = yield pgCleansedQuery(del, model, this.req, convertCase, true)
+							let req = this.req || {},
+								keys   = req[key] || [],
+								single = !Array.isArray(keys),
+								object = {}
 
-					return transform(rows)
+							if (scope && !req[scope])
+								throw new Error('missingScope ' + scope)
+
+							object[key] = single? [keys] : keys
+							if (scope)
+								object[scope] = req[scope]
+
+							if (!object[key].length)
+								throw new Error('missingKey')
+
+							let result = yield SQLRunQuery(SQLDelete(scope, key, type), object, single)
+
+							if (result instanceof Error)
+								throw result
+
+							return result
+						}
+					})
+
+					let deleteModel = {}
+
+					// Make the key take ether a value or an array of values
+					deleteModel[key] = Joi.alternatives().try([
+						Joi.array().items( model[key] ).required(),
+						model[key].required()
+					])
+
+					// Make the scope mandatory if specified
+					if (scope) deleteModel[scope] = model[scope].required()
+
+					action[validate] = {request:deleteModel}
+					service.action(action)
+				})
+
+
+				// delete.all only if scope
+				if (scope) {
+					let action = _.merge(middleware || {}, {
+						name: path + '.delete.all',
+						description: 'Deletes all records in the collection',
+						handler: function*(){
+
+							let req    = this.req || {},
+								object = {}
+
+							if (scope && !req[scope])
+								throw new Error('missingScope ' + scope)
+
+							if (scope)
+								object[scope] = req[scope]
+
+							return yield SQLRunQuery(SQLDelete(scope), object, false)
+						} 
+					})
+
+					let deleteModel = {}
+					deleteModel[scope] = model[scope].required()
+					action[validate]  = {request:deleteModel}
+
+					service.action(action)
 				}
-			})
-
-			action[validate] = deleteModel
-			service.action(action)
+			}
+			catch(err) {
+				console.error(err.stack)
+				throw err
+			}
 		}	
 	}
-
-
-
-
-
-
-
-
-
-
-	// ------------------------------------------------------------------------
-	// Query Execution
-	// ------------------------------------------------------------------------
-
-	function* pgCleansedQuery(sql, model, params, convertCase, single) {
-		
-		if (!sql) return null
-
-		let rows = yield postgres.anyCamelized(sql, params).map(function(object){
-			return Joi.validate(object, model, {stripUnknown:true}).value	
-		})
-		
-		if (convertCase)
-			rows = rows.map(function(object){ return recase.toSnake(object)	})
-
-		return single? (rows.length >= 1? rows[0] : undefined) : rows
-	}
-
-
-	// ------------------------------------------------------------------------
-	// Statement Builders
-	// ------------------------------------------------------------------------
-
-	function SQLInsert(table, scope, object, convertCase) {
-
-		let columns = [],
-			values  = []
-
-		_.each(object, function(value, prop){
-			columns.push(convertCase? Case.snake(prop) : prop)
-			values.push('${'+prop+'}')
-		})
-
-		return `insert into ${table} (${columns}) values (${values}) returning ${table}.*`
-	}
-
-
-	function SQLSelect(table, scope, key, type, convertCase) {
-
-		let keyCol   = key && convertCase? Case.snake(key) : key,
-		    scopeCol = scope && convertCase? Case.snake(scope) : scope
-		    
-		if (!keyCol && !scopeCol)
-			return `select * from ${table}`
-
-		let base  = `select * from ${table} where `,
-			conds = []
-
-		if (scopeCol) 
-			conds.push(scopeCol + '=${'+scope+'}')
-
-		if (keyCol)   
-			conds.push(keyCol +' = any(${'+key+`}::${type}[])`)
-
-		return base + conds.join(' and ')
-	}
-
-
-	function SQLUpdate(table, scope, keys, object, convertCase) {
-
-		for (let key in keys) {
-			if (object[key]) {
-
-				let assigns = _(object).omit(key).omit(scope).keys().map(function(prop){
-					let column = convertCase? Case.snake(prop) : prop
-					return column + '=${'+prop+'}'
-				}).values()
-
-				let keyCol    = convertCase? Case.snake(key) : key,
-					scopeCol  = scope && convertCase? Case.snake(scope) : scope,
-				    keyCond   = '${'+key+'}',
-				    scopeCond = scopeCol? '${'+scope+'}' : null
-
-				return scopeCond?
-					`update ${table} set ${assigns} where ${scopeCol}=${scopeCond} and ${keyCol}=${keyCond} returning ${table}.*` :
-					`update ${table} set ${assigns} where ${keyCol}=${keyCond} returning ${table}.*`
-			}
-		}
-		return null
-	}	
-
-
-	function SQLDelete(table, scope, keys, object, convertCase) {
-		for (let key in keys) {
-			if (object[key]) {
-
-				let keyCol    = convertCase? Case.snake(key) : key,
-					scopeCol  = scope && convertCase? Case.snake(scope) : scope,
-				    keyCond   = '${'+key+'}',
-				    scopeCond = scopeCol? '${'+scope+'}' : null
-
-				return scopeCond?
-					`delete from ${table} where ${scopeCol}=${scopeCond} and ${keyCol}=${keyCond}` :
-					`delete from ${table} where ${keyCol}=${keyCond}`
-			}
-		}
-		return null
-	}
 }
+
+

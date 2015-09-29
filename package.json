@@ -1,6 +1,6 @@
 {
   "name": "mserv-pgentity",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Error handling middleware for mserv.",
   "keywords": [
     "npm",
@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "chai": "^3.2.0",
-    "co": "^4.6.0",
     "mocha": "^2.2.5",
     "mserv": "^0.2.5",
     "mserv-context": "^0.2.2",
@@ -42,6 +41,8 @@
   "dependencies": {
     "bluebird": "^2.9.34",
     "case": "^1.2.1",
+    "co": "^4.6.0",
+    "debug": "^2.2.0",
     "joi": "^6.6.1",
     "lodash": "^3.10.1",
     "pg-promise": "^1.9.8",

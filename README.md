@@ -19,18 +19,24 @@ service.extend('enitity', entity, {
 service.ext.entity({
 	name: 'todo',
 	table: 'todos',
+	scope: 'userId',
 	keys: {id:'uuid'}
 	model: {
-		id:    Joi.string().guid(),
-		seq:   Joi.number(),
-		title: Joi.string(),
-		done:  Joi.boolean(),
+		userId: Joi.string().guid(),
+		id:     Joi.string().guid(),
+		seq:    Joi.number(),
+		title:  Joi.string(),
+		done:   Joi.boolean(),
 	},
 	create: true,
 	read:   true,
 	update: true,
 	delete: true
 })
+
+
+service.invoke('todo.fetch.all', {ownerId:'12345678-1234-1234-1234-123456789012'})
+
 
 ```
 
@@ -46,6 +52,7 @@ When creating entities there are more options:
 
 - `name`  : prefix for the action names that are created.
 - `table` : postgres table name with schema prefix if needed.
+- `scope` : multi-tenant support throw scoping.
 - `keys`  : object with key names and their types.
 - `model` : object with column names (camel-cased) and their Joi model.
 - `create` : if true the `<name>.create` action will be created.
