@@ -54,16 +54,22 @@ function wrappedTest(generatorFunc) {
 describe('mserv-pgentity without mserv-validate', function(){
 
 	let service  = mserv({amqp:false}).extend('entity',entity),
-		postgres = service.ext.postgres()
+		postgres = service.ext.postgres(),
+		hooks    = []
 
 	service.ext.entity('todo', {
 		table:'todos',
 		keys: {id:'uuid'},
 		model: TodoModel,
-		create: true,
+		create: function*(batch, next){
+			var records = yield next
+			hooks.push(records.length)
+			return records
+		},
 		read: true,
 		update: true,
-		delete: true
+		delete: true,
+		merge: true
 	})
 
 	service.ext.entity('scopedTodo', {
@@ -74,7 +80,8 @@ describe('mserv-pgentity without mserv-validate', function(){
 		create: true,
 		read: true,
 		update: true,
-		delete: true
+		delete: true,
+		merge: true
 	})
 
 
@@ -91,6 +98,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	})
 
 	beforeEach(function(done){
+		hooks = [],
 		postgres.queryRaw('truncate table todos; truncate table scopedTodos').nodeify(done)
 	})
 
@@ -113,6 +121,9 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 		// Our model does not have the createdAt column even though the DB does.
 		rec2.should.not.have.property.createdAt
+
+		// Ensure that our create "middleware" has been called.
+		hooks.should.eql([1])
 	}))
 
 	it('create should throw constraint violation', wrappedTest(function*(){
@@ -141,6 +152,9 @@ describe('mserv-pgentity without mserv-validate', function(){
 		recs2[0].done.should.equal(recs1[0].done)
 		recs2[1].name.should.equal(recs1[1].name)
 		recs2[1].done.should.equal(recs1[1].done)
+
+		// Ensure that our create "middleware" has been called.
+		hooks.should.eql([2])
 	}))
 
 
@@ -157,6 +171,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		recs2[0].done.should.equal(recs1[0].done)
 		recs2[1].should.have.property.error$
 	}))
+
 
 
 	// ------------------------------------------------------------------------
@@ -210,6 +225,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		recs2[1].name.should.equal(recs1[1].name)
 		recs2[1].done.should.equal(recs1[1].done)
 	}))
+
 
 
 
@@ -648,6 +664,52 @@ describe('mserv-pgentity without mserv-validate', function(){
 		let count = yield service.invoke('scopedTodo.delete.all', {ownerId:1})
 
 		count.should.equal(3)
+	}))
+
+
+
+	// ------------------------------------------------------------------------
+	// Merge 
+	// ------------------------------------------------------------------------
+
+	it('merge should insert a new record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.merge', {id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.should.eql({id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+	}))
+
+
+	it('merge should update the existing record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.merge', {id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.done = true
+		let rec2 = yield service.invoke('todo.merge', rec1),
+			rec3 = yield service.invoke('todo.fetch.byId', {id:'12345678-1234-1234-1234-123456789012'})
+
+		rec2.should.eql(rec3)
+		rec3.done.should.be.true
+	}))
+
+	// ------------------------------------------------------------------------
+	// Merge Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped merge should insert a new record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.merge', {ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.should.eql({ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+	}))
+
+
+	it('scoped merge should update the existing record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.merge', {ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.done = true
+		let rec2 = yield service.invoke('scopedTodo.merge', rec1),
+			rec3 = yield service.invoke('scopedTodo.fetch.byId', {ownerId:9, id:'12345678-1234-1234-1234-123456789012'})
+
+		rec2.should.eql(rec3)
+		rec3.done.should.be.true
 	}))
 })
 
@@ -1284,6 +1346,53 @@ describe('mserv-pgentity with mserv-validate', function(){
 		let count = yield service.invoke('scopedTodo.delete.all', {ownerId:1})
 
 		count.should.equal(3)
+	}))
+
+
+
+
+	// ------------------------------------------------------------------------
+	// Merge 
+	// ------------------------------------------------------------------------
+
+	it('merge should insert a new record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.merge', {id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.should.eql({id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+	}))
+
+
+	it('merge should update the existing record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('todo.merge', {id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.done = true
+		let rec2 = yield service.invoke('todo.merge', rec1),
+			rec3 = yield service.invoke('todo.fetch.byId', {id:'12345678-1234-1234-1234-123456789012'})
+
+		rec2.should.eql(rec3)
+		rec3.done.should.be.true
+	}))
+
+	// ------------------------------------------------------------------------
+	// Merge Scoped
+	// ------------------------------------------------------------------------
+
+	it('scoped merge should insert a new record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.merge', {ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.should.eql({ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+	}))
+
+
+	it('scoped merge should update the existing record', wrappedTest(function*(){
+
+		let rec1 = yield service.invoke('scopedTodo.merge', {ownerId:9, id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		rec1.done = true
+		let rec2 = yield service.invoke('scopedTodo.merge', rec1),
+			rec3 = yield service.invoke('scopedTodo.fetch.byId', {ownerId:9, id:'12345678-1234-1234-1234-123456789012'})
+
+		rec2.should.eql(rec3)
+		rec3.done.should.be.true
 	}))
 })
 

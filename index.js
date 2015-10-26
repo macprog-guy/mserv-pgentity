@@ -23,7 +23,9 @@ module.exports = function(service, options) {
 		promiseLib: Promise,
 		extend: pgext
 		// query: function(e) {
-		// 	console.log([e.query, e.params])
+		// 	console.log('QUERY', e.query)
+		// 	if (e.params)
+		// 		console.log('PARAMS', e.params)
 		// }
 		// error: function(err, e) {
 		// 	console.log(err)
@@ -232,7 +234,10 @@ module.exports = function(service, options) {
 				return Joi.validate(object, model, {stripUnknown:true}).value	
 			})
 			
-			return single && rows.length >= 1? rows[0] : rows
+			if (single && Array.isArray(rows))
+				return rows.length? rows[0] : null
+			
+			return rows
 		}
 
 
@@ -248,6 +253,71 @@ module.exports = function(service, options) {
 		}
 
 
+		function* noopMiddleware(batch, next) {
+			return yield next
+		} 
+
+		function handlerWrapper(batchQuery, key, failureMessage, middleware, genFunc) {
+
+			if (!isGeneratorFunction(middleware))
+				middleware = noopMiddleware
+
+			return function*() {
+
+				let req      = _.clone(this.req || {}),
+					scopeVal = scope && this.req[scope],
+					batch    = req.batch || key && req[key] || [req],
+					single   = !(req.batch || key && Array.isArray(req[key]))
+
+				if (!Array.isArray(batch))
+					batch = [batch]
+
+				if (scope && !req[scope])
+					throw new Error('missingScope ' + scope)
+
+				if (key && !req[key] && !req.batch)
+					throw new Error('missingKey')
+
+
+				// Loop function on each object in batch (parallel)
+				var next
+
+				if (batchQuery) {
+					var object = {}
+					object[key] = batch
+					object[scope] = scopeVal
+					next = genFunc(object)
+				}
+				else {
+					next = batch.map(function(o){
+						return co(function*(){
+							try { 
+								if (scope) o[scope] = scopeVal
+								return yield genFunc(o) 
+							}
+							catch(err) { 
+								return err 
+							}
+						})
+					})
+				}
+
+				var result = yield middleware(batch, next)
+
+				if (Array.isArray(result)) {
+					if (single) {
+						result = result[0]
+						if (result instanceof Error)
+							throw result
+					} else {
+						result = result.map(errorObject.bind(this, options.failureMessage || 'failed'))
+					}
+				}
+				return result
+			}
+		}
+
+
 
 		// ------------------------------------------------------------------------
 		// Create
@@ -256,47 +326,13 @@ module.exports = function(service, options) {
 		if (options.create) {
 
 			try {
+
 				let action = _.merge(middleware || {}, {
 					name: path + '.create',
 					descriptions: 'Creates one or more records from the provided values.',
-					handler: function*() {
-
-						let self     = this,
-							req      = self.req || {},						
-							scopeVal = scope && self.req[scope],
-						    batch    = req.batch || [req]
-
-						// Check that we have the scope key
-						if (scope && !this.req[scope])
-							throw new Error('missingScope ' + scope)
-
-						let result = yield batch.map(function(o) {
-							return co(function*(){
-								try {
-									if (scope) {
-										o = _.clone(o)
-										o[scope] = scopeVal
-									}
-									return yield SQLRunQuery(SQLInsert(o), o, true)
-								}
-								catch(error) {
-									return error
-								}
-							})
-						})
-
-						if (req.batch)
-							return result.map(errorObject.bind(this, 'insertFailed'))
-
-						// Take the first result if we have one
-						result = result.length? result[0] : null
-
-						// Throw if it's an error
-						if (result instanceof Error)
-							throw result
-
-						return  result
-					}
+					handler: handlerWrapper(false, false, 'insertFailed', options.create, function*(o) {
+						return yield SQLRunQuery(SQLInsert(o), o, true)
+					})
 				})
 
 				action[validate] = {request: singleOrArrayOfModels(model)}
@@ -323,27 +359,9 @@ module.exports = function(service, options) {
 					let action = _.merge(middleware || {}, {
 						name: path + '.fetch.' + Case.camel('by-'+key),
 						description: 'Fetch one or more ' + path + ' records by ' + key + '.',
-						handler: function*() {
-
-							let req = this.req || {},
-								keys   = req[key],
-								single = !Array.isArray(keys),
-								object = {}
-
-							if (scope && !req[scope])
-								throw new Error('missingScope ' + scope)
-
-							object[key] = single? [keys] : keys
-							if (scope)
-								object[scope] = req[scope]
-
-							let result = yield SQLRunQuery(SQLSelect(scope, key, type), object, single)
-
-							if (result instanceof Error)
-								throw result
-
-							return result
-						}
+						handler: handlerWrapper(true, key, 'readFailed', options.read, function*(object) {
+							return yield SQLRunQuery(SQLSelect(scope, key, type), object, false)
+						})
 					})
 
 					let fetchModel = {}
@@ -407,43 +425,9 @@ module.exports = function(service, options) {
 			let action = _.merge(middleware || {}, {
 				name: path + '.update',
 				descriptions: 'Updates a record changing only fields that have been provided.',
-				handler: function*() {
-
-					let self     = this,
-						req      = self.req || {},
-						scopeVal = scope && req[scope],
-					    batch  = req.batch || [req]
-
-					if (scope && !req[scope])
-						throw new Error('missingScope ' + scope)
-
-					let result = yield batch.map(function(o) {
-						return co(function*(){
-							try {
-								if (scope) {
-									o = _.clone(o)
-									o[scope] = scopeVal
-								}
-								return yield SQLRunQuery(SQLUpdate(o), o, true)
-							}
-							catch(error) {
-								return error
-							}
-						})
-					})
-
-					if (req.batch)
-						return result.map(errorObject.bind(this, 'updateFailed'))
-
-					// Take the first result if we have one
-					result = result.length? result[0] : null
-
-					// Throw if it's an error
-					if (result instanceof Error)
-						throw result
-
-					return  result
-				}
+				handler: handlerWrapper(false, false, 'updateFailed', options.update, function*(o) {
+					return yield SQLRunQuery(SQLUpdate(o), o, true)
+				})
 			})
 
 			action[validate] = { request: singleOrArrayOfModels(model) }
@@ -465,30 +449,9 @@ module.exports = function(service, options) {
 					let action = _.merge(middleware || {}, {
 						name: path + '.delete.' + Case.camel('by-'+key),
 						description: 'Deletes one or more ' + path + ' records by ' + key + '.',
-						handler: function*() {
-
-							let req = this.req || {},
-								keys   = req[key] || [],
-								single = !Array.isArray(keys),
-								object = {}
-
-							if (scope && !req[scope])
-								throw new Error('missingScope ' + scope)
-
-							object[key] = single? [keys] : keys
-							if (scope)
-								object[scope] = req[scope]
-
-							if (!object[key].length)
-								throw new Error('missingKey')
-
-							let result = yield SQLRunQuery(SQLDelete(scope, key, type), object, single)
-
-							if (result instanceof Error)
-								throw result
-
-							return result
-						}
+						handler: handlerWrapper(true, key, 'deleteFailed', options.delete, function*(o) {
+							return yield SQLRunQuery(SQLDelete(scope, key, type), o, false)
+						})
 					})
 
 					let deleteModel = {}
@@ -512,19 +475,9 @@ module.exports = function(service, options) {
 					let action = _.merge(middleware || {}, {
 						name: path + '.delete.all',
 						description: 'Deletes all records in the collection',
-						handler: function*(){
-
-							let req    = this.req || {},
-								object = {}
-
-							if (scope && !req[scope])
-								throw new Error('missingScope ' + scope)
-
-							if (scope)
-								object[scope] = req[scope]
-
-							return yield SQLRunQuery(SQLDelete(scope), object, false)
-						} 
+						handler: handlerWrapper(false, false, 'deleteFailed', options.delete, function*(o) {
+							return yield SQLRunQuery(SQLDelete(scope), o, false)
+						}) 
 					})
 
 					let deleteModel = {}
@@ -538,8 +491,51 @@ module.exports = function(service, options) {
 				console.error(err.stack)
 				throw err
 			}
-		}	
+		}
+
+
+
+		// ------------------------------------------------------------------------
+		// Merge
+		// ------------------------------------------------------------------------
+
+		if (options.merge) {
+
+			let action = _.merge(middleware || {}, {
+				name: path + '.merge',
+				descriptions: 'Merges (updates or inserts as needed) a record changing or setting only fields that have been provided.',
+				handler: handlerWrapper(false, false, 'mergeFailed', options.merge, function*(o) {
+					var record = null
+					while (!record) {
+						record = yield SQLRunQuery(SQLUpdate(o), o, true)
+						if (record == null) {
+							try {
+								record = yield SQLRunQuery(SQLInsert(o), o, true)
+							}
+							catch(err) {
+								if (!/duplicate key/.match(err.mesage))
+									throw err
+							}
+						}
+					}
+					return  record
+				})
+			})
+
+			action[validate] = { request: singleOrArrayOfModels(model) }
+			service.action(action)
+		}		
 	}
 }
 
+// From co
+function isGeneratorFunction(obj) {
+  var constructor = obj.constructor;
+  if (!constructor) return false;
+  if ('GeneratorFunction' === constructor.name || 'GeneratorFunction' === constructor.displayName) return true;
+  return isGenerator(constructor.prototype);
+}
 
+function isGenerator(obj) {
+  return 'function' == typeof obj.next && 'function' == typeof obj.throw;
+}
