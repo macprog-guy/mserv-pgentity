@@ -226,7 +226,7 @@ module.exports = function(service, options) {
 			debug({sql, object, single})
 
 			if (sql.slice(0,6).toLowerCase() === 'delete') {
-				let rawResult = yield postgres.query(sql,object,'result')
+				let rawResult = yield postgres.result(sql,object)
 				return rawResult.rowCount
 			}
 

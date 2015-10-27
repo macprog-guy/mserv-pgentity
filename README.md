@@ -54,10 +54,11 @@ When creating entities there are more options:
 - `scope` : multi-tenant support throw scoping.
 - `keys`  : object with key names and their types.
 - `model` : object with column names (camel-cased) and their Joi model.
-- `create` : if true the `<name>.create` action will be created.
-- `read`   : if true the `<name>.find.by<Key>` actions will be created for each key.
-- `update` : if true the `<name>.update` action will be created.
-- `delete` : if true the `<name>.delete` action will be created.
+- `create` : if true the `<name>.create` action will be created. Can also be a generator function, which acts as middleware around the create action.
+- `read`   : if true the `<name>.find.by<Key>` actions will be created for each key. Can also be a generator function, which acts as middleware around the read action.
+- `update` : if true the `<name>.update` action will be created. Can also be a generator function, which acts as middleware around the update action.
+- `delete` : if true the `<name>.delete` action will be created. Can also be a generator function, which acts as middleware around the delete action.
+- `merge` : if true the `<name>.merge` action will be created. Can also be a generator function, which acts as middleware around the merge action. Merge attempts perform update and will insert if the update failed.
 
 
 # Actions
