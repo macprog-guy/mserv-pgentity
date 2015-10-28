@@ -68,37 +68,6 @@ module.exports = function(service, options) {
 			convertCase = Case[fieldCase || 'snake'],
 			middleware  = _.merge(_.omit(options, 'table','scope','keys','model','transform','fieldCase','create','read','update','delete','middleware'), options.middleware || {})
 
-		/**
-
-		 Returns a Joi model that accepts the input model or an object with an 'objects' key 
-		 whose value is an array of input models.
-
-		 @param {Joi} model - input model is either a Joi model or a plain object whose keys are Joi models.
-		 @returns {Joi} 
-
-		 @api private
-
-		 */
-
-		function singleOrArrayOfModels(model) {
-
-			let compositeModel = model
-
-			// Convert the model to a Joi object
-			if (!compositeModel.isJoi && typeof compositeModel === 'object')
-				compositeModel = Joi.object().keys(compositeModel)
-
-			// Accept one model object or an array of model batch
-			// For the array, the request parameter is "batch".
-			let keys = {batch: Joi.array().single(true).items(compositeModel).required().options({stripUnknown:true})}
-			if (scope)
-				keys[scope] = model[scope].required()
-
-			return Joi.alternatives().try([
-				Joi.object().keys(keys),
-				model
-			])
-		}
 
 		/**
 
@@ -257,17 +226,32 @@ module.exports = function(service, options) {
 			return yield next
 		} 
 
-		function handlerWrapper(batchQuery, key, failureMessage, middleware, genFunc) {
+		function handlerWrapper(options) {
+
+			options = _.defaults(options, {
+				batch: false,
+				key: false,
+				failureMessage: 'failed',
+				middleware: noopMiddleware,
+				forceMany:false
+			})
+
+			var batchQuery = options.batch,
+				key        = options.key,
+				middleware = options.middleware || noopMiddleware,
+				handler    = options.handler,
+				forceMany  = options.forceMany
 
 			if (!isGeneratorFunction(middleware))
 				middleware = noopMiddleware
+
 
 			return function*() {
 
 				let req      = _.clone(this.req || {}),
 					scopeVal = scope && this.req[scope],
 					batch    = req.batch || key && req[key] || [req],
-					single   = !(req.batch || key && Array.isArray(req[key]))
+					many     = forceMany || req.batch || key && Array.isArray(req[key])
 
 				if (!Array.isArray(batch))
 					batch = [batch]
@@ -286,14 +270,14 @@ module.exports = function(service, options) {
 					var object = {}
 					object[key] = batch
 					object[scope] = scopeVal
-					next = genFunc(object)
+					next = handler(object)
 				}
 				else {
 					next = batch.map(function(o){
 						return co(function*(){
 							try { 
 								if (scope) o[scope] = scopeVal
-								return yield genFunc(o) 
+								return yield handler(o) 
 							}
 							catch(err) { 
 								return err 
@@ -305,7 +289,7 @@ module.exports = function(service, options) {
 				var result = yield middleware(batch, next)
 
 				if (Array.isArray(result)) {
-					if (single) {
+					if (!many) {
 						result = result[0]
 						if (result instanceof Error)
 							throw result
@@ -317,6 +301,48 @@ module.exports = function(service, options) {
 			}
 		}
 
+		function objectValidationModel() {
+
+			var base, one, many, oneOrMany, keys
+
+			one  = _.clone(model)
+			many = {batch: Joi.array().items(model)}
+
+			// Not required because handled in handleWrapper 
+			if (scope) {
+				many[scope] = model[scope]
+			}
+
+			one  = Joi.object().keys(one)
+			many = Joi.object().keys(many)
+
+			return Joi.alternatives().try([one, many])
+		}
+
+		function keyedValidationModel(key) {
+
+			var base, one, many
+
+			base = model[key]
+			
+			one = {}
+			one[key] = base
+
+			many = {}
+			many[key]  = Joi.array().items(base),
+			many.batch = many[key]
+
+			// Not required because handled in handleWrapper
+			if (scope)
+				one[scope] = many[scope] = model[scope]
+
+			one =  Joi.object().keys(one).options({stripUnknown:true})
+			many = Joi.object().keys(many).xor(key, 'batch').options({stripUnknown:true})
+			
+			var toto = Joi.alternatives().try([one, many])
+
+			return toto
+		}
 
 
 		// ------------------------------------------------------------------------
@@ -330,12 +356,16 @@ module.exports = function(service, options) {
 				let action = _.merge(middleware || {}, {
 					name: path + '.create',
 					descriptions: 'Creates one or more records from the provided values.',
-					handler: handlerWrapper(false, false, 'insertFailed', options.create, function*(o) {
-						return yield SQLRunQuery(SQLInsert(o), o, true)
+					handler: handlerWrapper({
+						failureMessage: 'insertFailed', 
+						middleware: options.create, 
+						handler: function*(o) {
+							return yield SQLRunQuery(SQLInsert(o), o, true)
+						}
 					})
 				})
 
-				action[validate] = {request: singleOrArrayOfModels(model)}
+				action[validate] = {request: objectValidationModel()}
 				service.action(action)
 			}
 			catch(err) {
@@ -353,50 +383,41 @@ module.exports = function(service, options) {
 
 			try {
 
-				// Create a fetch.byKey for each key
+				// Create a fetch.by<Key> for each key
 				_.each(keys, function(type, key){					
 
 					let action = _.merge(middleware || {}, {
 						name: path + '.fetch.' + Case.camel('by-'+key),
 						description: 'Fetch one or more ' + path + ' records by ' + key + '.',
-						handler: handlerWrapper(true, key, 'readFailed', options.read, function*(object) {
-							return yield SQLRunQuery(SQLSelect(scope, key, type), object, false)
+						handler: handlerWrapper({
+							batch:true, 
+							key, 
+							failureMessage: 'readFailed', 
+							middleware: options.read, 
+							handler: function*(batch) {
+								return yield SQLRunQuery(SQLSelect(scope, key, type), batch, false)
+							}
 						})
 					})
 
-					let fetchModel = {}
-
-					// Make the key take ether a value or an array of values
-					fetchModel[key] = Joi.alternatives().try([
-						Joi.array().items( model[key] ).required(),
-						model[key].required()
-					])
-
-					// Make the scope mandatory if specified
-					if (scope) fetchModel[scope] = model[scope].required()
-
-					action[validate] = {request:fetchModel}
+					action[validate] = {request: keyedValidationModel(key)}
 					service.action(action)
 				})
 
 
-				// fetch.all
+				// fetch
 				let action = _.merge(middleware || {}, {
-					name: path + '.fetch.all',
+					name: path + '.fetch',
 					description: 'Fetch all records in the collection',
-					handler: function*(){
-
-						let req    = this.req || {},
-							object = {}
-
-						if (scope && !req[scope])
-							throw new Error('missingScope ' + scope)
-
-						if (scope)
-							object[scope] = req[scope]
-
-						return yield SQLRunQuery(SQLSelect(scope), object, false)
-					} 
+					handler: handlerWrapper({
+						batch: true, 
+						failureMessage: 'readFailed', 
+						middleware: options.read, 
+						forceMany:true,
+						handler: function*(batch) {
+							return yield SQLRunQuery(SQLSelect(scope), batch, false)
+						}
+					}) 
 				})
 
 				if (scope) {
@@ -425,12 +446,16 @@ module.exports = function(service, options) {
 			let action = _.merge(middleware || {}, {
 				name: path + '.update',
 				descriptions: 'Updates a record changing only fields that have been provided.',
-				handler: handlerWrapper(false, false, 'updateFailed', options.update, function*(o) {
-					return yield SQLRunQuery(SQLUpdate(o), o, true)
+				handler: handlerWrapper({
+					failureMessage: 'updateFailed', 
+					middleware: options.update, 
+					handler: function*(o) {
+						return yield SQLRunQuery(SQLUpdate(o), o, true)
+					}
 				})
 			})
 
-			action[validate] = { request: singleOrArrayOfModels(model) }
+			action[validate] = { request: objectValidationModel() }
 			service.action(action)
 		}
 
@@ -443,29 +468,24 @@ module.exports = function(service, options) {
 
 			try {
 
-				// Create a fetch.byKey for each key
+				// Create a delete.by<Key> for each key
 				_.each(keys, function(type, key){					
 
 					let action = _.merge(middleware || {}, {
 						name: path + '.delete.' + Case.camel('by-'+key),
 						description: 'Deletes one or more ' + path + ' records by ' + key + '.',
-						handler: handlerWrapper(true, key, 'deleteFailed', options.delete, function*(o) {
-							return yield SQLRunQuery(SQLDelete(scope, key, type), o, false)
+						handler: handlerWrapper({
+							batch: true, 
+							key, 
+							failureMessage: 'deleteFailed', 
+							middleware: options.delete, 
+							handler: function*(o) {
+								return yield SQLRunQuery(SQLDelete(scope, key, type), o, false)
+							}
 						})
 					})
 
-					let deleteModel = {}
-
-					// Make the key take ether a value or an array of values
-					deleteModel[key] = Joi.alternatives().try([
-						Joi.array().items( model[key] ).required(),
-						model[key].required()
-					])
-
-					// Make the scope mandatory if specified
-					if (scope) deleteModel[scope] = model[scope].required()
-
-					action[validate] = {request:deleteModel}
+					action[validate] = {request:keyedValidationModel(key)}
 					service.action(action)
 				})
 
@@ -475,8 +495,12 @@ module.exports = function(service, options) {
 					let action = _.merge(middleware || {}, {
 						name: path + '.delete.all',
 						description: 'Deletes all records in the collection',
-						handler: handlerWrapper(false, false, 'deleteFailed', options.delete, function*(o) {
-							return yield SQLRunQuery(SQLDelete(scope), o, false)
+						handler: handlerWrapper({
+							failureMessage: 'deleteFailed', 
+							middleware: options.delete, 
+							handler: function*(o) {
+								return yield SQLRunQuery(SQLDelete(scope), o, false)
+							}
 						}) 
 					})
 
@@ -501,29 +525,40 @@ module.exports = function(service, options) {
 
 		if (options.merge) {
 
-			let action = _.merge(middleware || {}, {
-				name: path + '.merge',
-				descriptions: 'Merges (updates or inserts as needed) a record changing or setting only fields that have been provided.',
-				handler: handlerWrapper(false, false, 'mergeFailed', options.merge, function*(o) {
-					var record = null
-					while (!record) {
-						record = yield SQLRunQuery(SQLUpdate(o), o, true)
-						if (record == null) {
-							try {
-								record = yield SQLRunQuery(SQLInsert(o), o, true)
+			try {
+				let action = _.merge(middleware || {}, {
+					name: path + '.merge',
+					descriptions: 'Merges (updates or inserts as needed) a record changing or setting only fields that have been provided.',
+					handler: handlerWrapper({
+						failureMessage: 'mergeFailed', 
+						middleware: options.merge, 
+						handler: function*(o) {
+							var record = null
+							while (!record) {
+								record = yield SQLRunQuery(SQLUpdate(o), o, true)
+								if (record == null) {
+									try {
+										record = yield SQLRunQuery(SQLInsert(o), o, true)
+									}
+									catch(err) {
+										console.error(err)
+										if (!/duplicate key/.test(err.mesage))
+											throw err
+									}
+								}
 							}
-							catch(err) {
-								if (!/duplicate key/.match(err.mesage))
-									throw err
-							}
+							return  record
 						}
-					}
-					return  record
+					})
 				})
-			})
 
-			action[validate] = { request: singleOrArrayOfModels(model) }
-			service.action(action)
+				action[validate] = { request: objectValidationModel() }
+				service.action(action)
+			}
+			catch(err) {
+				console.error(err.stack)
+				throw err
+			}
 		}		
 	}
 }

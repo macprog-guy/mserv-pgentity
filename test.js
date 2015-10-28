@@ -277,11 +277,11 @@ describe('mserv-pgentity without mserv-validate', function(){
 	}))
 
 
-	it('fetch.all should return many records', wrappedTest(function*(){
+	it('fetch should return many records', wrappedTest(function*(){
 
 		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
 
-		let recs = yield service.invoke('todo.fetch.all')
+		let recs = yield service.invoke('todo.fetch')
 
 		should.exist(recs)
 		recs.length.should.equal(3)		
@@ -332,11 +332,11 @@ describe('mserv-pgentity without mserv-validate', function(){
 		}
 	}))
 
-	it('scoped fetch.all should return many records', wrappedTest(function*(){
+	it('scoped fetch should return many records', wrappedTest(function*(){
 
 		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
 
-		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:1})
+		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:1})
 
 		should.exist(recs)
 		recs.length.should.equal(2)
@@ -344,10 +344,10 @@ describe('mserv-pgentity without mserv-validate', function(){
 		recs[1].ownerId.should.equal(1)
 	}))
 
-	it('scoped fetch.all throw missingScope', wrappedTest(function*(){
+	it('scoped fetch throw missingScope', wrappedTest(function*(){
 
 		try {
-			yield service.invoke('scopedTodo.fetch.all')
+			yield service.invoke('scopedTodo.fetch')
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
@@ -632,7 +632,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[rec1.id, rec2.id, rec3.id, rec4.id, rec5.id]})
 		count.should.equal(3)
 
-		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:2})
+		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:2})
 		recs.length.should.equal(2)
 	}))
 
@@ -742,6 +742,15 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 
 
+
+
+
+
+
+
+
+
+
 // ------------------------------------------------------------------------
 //
 // WITH mserv-validate
@@ -760,7 +769,8 @@ describe('mserv-pgentity with mserv-validate', function(){
 		create: true,
 		read: true,
 		update: true,
-		delete: true
+		delete: true,
+		merge: true
 	})
 
 	service.ext.entity('scopedTodo', {
@@ -771,7 +781,8 @@ describe('mserv-pgentity with mserv-validate', function(){
 		create: true,
 		read: true,
 		update: true,
-		delete: true
+		delete: true,
+		merge: true
 	})
 
 
@@ -919,8 +930,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 
 		let rec1 = yield service.invoke('todo.create', {name: 'item #1', done:false}),
 			rec2 = yield service.invoke('todo.fetch.byId', {id:rec1.id})
-
-		rec2.should.eql(rec1)
+			rec2.should.eql(rec1)
 	}))
 
 	it('fetch.byId should return many records', wrappedTest(function*(){
@@ -959,13 +969,13 @@ describe('mserv-pgentity with mserv-validate', function(){
 	}))
 
 
-	it('fetch.all should return many records', wrappedTest(function*(){
+	it('fetch should return many records', wrappedTest(function*(){
 
 		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
 
-		let recs = yield service.invoke('todo.fetch.all')
-
+		let recs = yield service.invoke('todo.fetch')
 		should.exist(recs)
+		recs.should.be.instanceOf(Array)
 		recs.length.should.equal(3)		
 	}))
 
@@ -1014,11 +1024,11 @@ describe('mserv-pgentity with mserv-validate', function(){
 		}
 	}))
 
-	it('scoped fetch.all should return many records', wrappedTest(function*(){
+	it('scoped fetch should return many records', wrappedTest(function*(){
 
 		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
 
-		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:1})
+		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:1})
 
 		should.exist(recs)
 		recs.length.should.equal(2)
@@ -1026,10 +1036,10 @@ describe('mserv-pgentity with mserv-validate', function(){
 		recs[1].ownerId.should.equal(1)
 	}))
 
-	it('scoped fetch.all throw missingScope', wrappedTest(function*(){
+	it('scoped fetch throw missingScope', wrappedTest(function*(){
 
 		try {
-			yield service.invoke('scopedTodo.fetch.all')
+			yield service.invoke('scopedTodo.fetch')
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
@@ -1232,8 +1242,10 @@ describe('mserv-pgentity with mserv-validate', function(){
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey')
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingKey') {
+				console.error(err)
 				throw err
+			}
 		}
 	}))
 
@@ -1279,14 +1291,14 @@ describe('mserv-pgentity with mserv-validate', function(){
 		count.should.equal(1)
 	}))
 
-	it('scoped delete.byId should throw validationErrors', wrappedTest(function*(){
+	it('scoped delete.byId should throw missingScope', wrappedTest(function*(){
 
 		try {
 			yield service.invoke('scopedTodo.delete.byId', {id:'12345678-1234-1234-1234-123456789012'})
 			throw new Error('Invoke did not throw')
 		}
 		catch(err) {
-			if (err.message === 'Invoke did not throw' || err.message !== 'validationErrors')
+			if (err.message === 'Invoke did not throw' || err.message !== 'missingScope ownerId')
 				throw err
 		}
 	}))
@@ -1314,7 +1326,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 		let count = yield service.invoke('scopedTodo.delete.byId', {ownerId:1, id:[rec1.id, rec2.id, rec3.id, rec4.id, rec5.id]})
 		count.should.equal(3)
 
-		let recs = yield service.invoke('scopedTodo.fetch.all', {ownerId:2})
+		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:2})
 		recs.length.should.equal(2)
 	}))
 
