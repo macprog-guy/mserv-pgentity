@@ -62,7 +62,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 		keys: {id:'uuid'},
 		model: TodoModel,
 		create: function*(batch, next){
-			var records = yield next
+			var records = yield next(batch)
 			hooks.push(records.length)
 			return records
 		},

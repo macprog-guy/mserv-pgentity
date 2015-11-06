@@ -223,7 +223,7 @@ module.exports = function(service, options) {
 
 
 		function* noopMiddleware(batch, next) {
-			return yield next
+			return yield next(batch)
 		} 
 
 		function handlerWrapper(options) {
@@ -263,27 +263,32 @@ module.exports = function(service, options) {
 					throw new Error('missingKey')
 
 
-				// Loop function on each object in batch (parallel)
 				var next
 
 				if (batchQuery) {
-					var object = {}
-					object[key] = batch
-					object[scope] = scopeVal
-					next = handler(object)
+					// Do all objects in on query
+					next = function*(batch) {
+						var params = {}
+						params[key] = batch
+						if (scope) params[scope] = scopeVal
+						return yield handler(params)
+					}
 				}
 				else {
-					next = batch.map(function(o){
-						return co(function*(){
-							try { 
-								if (scope) o[scope] = scopeVal
-								return yield handler(o) 
-							}
-							catch(err) { 
-								return err 
-							}
+					// Loop function on each object in batch (parallel)
+					next = function*(batch) {
+						return yield batch.map(function(o){
+							return co(function*(){
+								try { 
+									if (scope) o[scope] = scopeVal
+									return yield handler(o) 
+								}
+								catch(err) { 
+									return err 
+								}
+							})
 						})
-					})
+					}
 				}
 
 				var result = yield middleware(batch, next)

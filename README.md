@@ -54,11 +54,11 @@ When creating entities there are more options:
 - `scope` : multi-tenant support throw scoping.
 - `keys`  : object with key names and their types.
 - `model` : object with column names (camel-cased) and their Joi model.
-- `create` : if true the `<name>.create` action will be created. Can also be a generator function, which acts as middleware around the create action.
-- `read`   : if true the `<name>.find.by<Key>` actions will be created for each key. Can also be a generator function, which acts as middleware around the read action.
-- `update` : if true the `<name>.update` action will be created. Can also be a generator function, which acts as middleware around the update action.
-- `delete` : if true the `<name>.delete` action will be created. Can also be a generator function, which acts as middleware around the delete action.
-- `merge` : if true the `<name>.merge` action will be created. Can also be a generator function, which acts as middleware around the merge action. Merge attempts perform update and will insert if the update failed.
+- `create` : if true the `<name>.create` action will be created. Can also be a generator function, which acts as middleware around the create action. The generator function should have the following signature: `function*(array[Object], next)` and `yield next(array)` where array is the possibly modified array of objects that was initially passed in.
+- `read`   : if true the `<name>.find.by<Key>` actions will be created for each key. Can also be a generator function, which acts as middleware around the read action. See `create` for more details.
+- `update` : if true the `<name>.update` action will be created. Can also be a generator function, which acts as middleware around the update action. See `create` for more details.
+- `delete` : if true the `<name>.delete` action will be created. Can also be a generator function, which acts as middleware around the delete action. See `create` for more details.
+- `merge` : if true the `<name>.merge` action will be created. Can also be a generator function, which acts as middleware around the merge action. Merge attempts perform update and will insert if the update failed. See `create` for more details.
 
 
 # Actions

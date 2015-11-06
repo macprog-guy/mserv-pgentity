@@ -1,6 +1,6 @@
 {
   "name": "mserv-pgentity",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Error handling middleware for mserv.",
   "keywords": [
     "npm",
