@@ -13,7 +13,8 @@ var mserv    = require('mserv'),
 var TodoModel = {	
 	id:      Joi.string().guid(),
 	name:    Joi.string().allow(null),
-	done:    Joi.boolean()
+	done:    Joi.boolean(),
+	tags:    Joi.array().items(Joi.string())
 }
 
 var ScopedTodoModel = {	
@@ -60,6 +61,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	service.ext.entity('todo', {
 		table:'todos',
 		keys: {id:'uuid'},
+		arrays: {tags:'text'},
 		model: TodoModel,
 		create: function*(batch, next){
 			var records = yield next(batch)
@@ -87,7 +89,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 	before(function(done){
 		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').then(function(){
+			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, tags text[] default null, created_at timestamp default current_timestamp)').then(function(){
 				postgres.queryRaw('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
 			})
 		})		
@@ -172,6 +174,33 @@ describe('mserv-pgentity without mserv-validate', function(){
 		recs2[1].should.have.property.error$
 	}))
 
+	it('create should return a record with empty tags array', wrappedTest(function*(){
+
+		let rec1 = {name: 'item #1', done:false, tags:[]},
+			rec2 = yield service.invoke('todo.create', rec1)
+		
+		should.exist(rec2)
+		rec2.id.should.exist 
+
+		// Check for equality of properties
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(rec1.done)
+		rec2.tags.should.eql(rec1.tags)
+	}))
+
+	it('create should return a record with non-empty tags array', wrappedTest(function*(){
+
+		let rec1 = {name: 'item #1', done:false, tags:['tag1','tag2']},
+			rec2 = yield service.invoke('todo.create', rec1)
+		
+		should.exist(rec2)
+		rec2.id.should.exist 
+
+		// Check for equality of properties
+		rec2.name.should.equal(rec1.name)
+		rec2.done.should.equal(rec1.done)
+		rec2.tags.should.eql(rec1.tags)
+	}))
 
 
 	// ------------------------------------------------------------------------
@@ -675,7 +704,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 	it('merge should insert a new record', wrappedTest(function*(){
 
 		let rec1 = yield service.invoke('todo.merge', {id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
-		rec1.should.eql({id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
+		_.pick(rec1, 'id','name','done').should.eql({id:'12345678-1234-1234-1234-123456789012', name:'item #1', done:false})
 	}))
 
 

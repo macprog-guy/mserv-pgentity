@@ -65,6 +65,7 @@ module.exports = function(service, options) {
 			model       = options.model,
 			scope       = options.scope,
 			fieldCase   = options.fieldCase,
+			arrays      = options.arrays || {},
 			convertCase = Case[fieldCase || 'snake'],
 			middleware  = _.merge(_.omit(options, 'table','scope','keys','model','transform','fieldCase','create','read','update','delete','middleware'), options.middleware || {})
 
@@ -78,7 +79,9 @@ module.exports = function(service, options) {
 
 		 */
 		function templateParam(k) {
-			return '${'+k+'}' 
+			var p = '${'+k+'}',	
+				t = arrays[k]
+			return t? p+'::'+t+'[]' : p
 		}
 
 		/**
