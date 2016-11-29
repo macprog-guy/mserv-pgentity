@@ -1,0 +1,130 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/usr/local/bin/node', '/usr/local/bin/npm', 'publish' ]
+2 info using npm@3.10.9
+3 info using node@v7.2.0
+4 verbose publish [ '.' ]
+5 silly cache add args [ '.', null ]
+6 verbose cache add spec .
+7 silly cache add parsed spec Result {
+7 silly cache add   raw: '.',
+7 silly cache add   scope: null,
+7 silly cache add   escapedName: null,
+7 silly cache add   name: null,
+7 silly cache add   rawSpec: '.',
+7 silly cache add   spec: '/Users/eric/Development/nodejs/mserv-pgentity',
+7 silly cache add   type: 'directory' }
+8 verbose addLocalDirectory /Users/eric/.npm/mserv-pgentity/0.2.11/package.tgz not in flight; packing
+9 verbose correctMkdir /Users/eric/.npm correctMkdir not in flight; initializing
+10 info lifecycle mserv-pgentity@0.2.11~prepublish: mserv-pgentity@0.2.11
+11 silly lifecycle mserv-pgentity@0.2.11~prepublish: no script for prepublish, continuing
+12 verbose tar pack [ '/Users/eric/.npm/mserv-pgentity/0.2.11/package.tgz',
+12 verbose tar pack   '/Users/eric/Development/nodejs/mserv-pgentity' ]
+13 verbose tarball /Users/eric/.npm/mserv-pgentity/0.2.11/package.tgz
+14 verbose folder /Users/eric/Development/nodejs/mserv-pgentity
+15 verbose addLocalTarball adding from inside cache /Users/eric/.npm/mserv-pgentity/0.2.11/package.tgz
+16 verbose correctMkdir /Users/eric/.npm correctMkdir not in flight; initializing
+17 silly cache afterAdd mserv-pgentity@0.2.11
+18 verbose afterAdd /Users/eric/.npm/mserv-pgentity/0.2.11/package/package.json not in flight; writing
+19 verbose correctMkdir /Users/eric/.npm correctMkdir not in flight; initializing
+20 verbose afterAdd /Users/eric/.npm/mserv-pgentity/0.2.11/package/package.json written
+21 silly publish { name: 'mserv-pgentity',
+21 silly publish   version: '0.2.11',
+21 silly publish   description: 'ORM using mserv microservices.',
+21 silly publish   keywords: [ 'npm', 'mserv', 'active', 'record', 'orm', 'entity' ],
+21 silly publish   homepage: 'https://github.com/macprog-guy/mserv-pgentity',
+21 silly publish   main: './index.js',
+21 silly publish   scripts: { test: 'NODE_ENV=test ./node_modules/.bin/mocha -R spec --harmony -t 5000 -u bdd ./test' },
+21 silly publish   author:
+21 silly publish    { name: 'Eric Methot',
+21 silly publish      email: 'eric@macprog.com',
+21 silly publish      url: 'https://github.com/macprog-guy/' },
+21 silly publish   repository:
+21 silly publish    { type: 'git',
+21 silly publish      url: 'git://github.com/macprog-guy/mserv-pgentity.git' },
+21 silly publish   bugs: { url: 'http://github.com/macprog-guy/mserv-pgentity/issues' },
+21 silly publish   license: 'MIT',
+21 silly publish   peerDeependencies: { mserv: '^0.2.0' },
+21 silly publish   devDependencies:
+21 silly publish    { chai: '^3.2.0',
+21 silly publish      mocha: '^2.2.5',
+21 silly publish      mserv: '^0.2.5',
+21 silly publish      'mserv-context': '^0.2.2',
+21 silly publish      'mserv-validate': '^0.2.5' },
+21 silly publish   dependencies:
+21 silly publish    { bluebird: '2.11.0',
+21 silly publish      case: '1.4.2',
+21 silly publish      chai: '3.5.0',
+21 silly publish      co: '^4.6.0',
+21 silly publish      debug: '2.3.3',
+21 silly publish      joi: '6.10.1',
+21 silly publish      lodash: '^3.10.1',
+21 silly publish      mocha: '2.5.3',
+21 silly publish      mserv: '0.2.20',
+21 silly publish      'mserv-validate': '0.2.9',
+21 silly publish      'pg-promise': '1.11.0',
+21 silly publish      'recase-keys': '^0.5.0' },
+21 silly publish   readme: '# Introduction\nmserv-pgentity is [mserv](https://github.com/macprog-guy/mserv) extension that simplifies creating CRUD like actions for postgres-backed data entities. The middleware assumes that [mserv-validate](https://github.com/macprog-guy/mserv-validate) is present and the postgres client is [pg-promise](https://github.com/vitaly-t/pg-promise).\n\n# Installation\n\n\t$ npm i --save mserv-validate\n\n# Usage\n\n```js\n\nvar entity  = require(\'mserv-pgentity\'),\n\tservice = require(\'mserv\')(),\n\nservice.extend(\'enitity\', entity, {\n\tpostgres: \'postgres://localhost/mydatabase\'\n})\n\nservice.ext.entity(\'todo\', {\n\ttable: \'todos\',\n\tscope: \'userId\',\n\tkeys: {id:\'uuid\'}\n\tmodel: {\n\t\tuserId: Joi.string().guid(),\n\t\tid:     Joi.string().guid(),\n\t\tseq:    Joi.number(),\n\t\ttitle:  Joi.string(),\n\t\tdone:   Joi.boolean(),\n\t},\n\tcreate: true,\n\tread:   true,\n\tupdate: true,\n\tdelete: true\n})\n\n\nservice.invoke(\'todo.fetch.all\', {ownerId:\'12345678-1234-1234-1234-123456789012\'})\n\n\n```\n\n# Options\n\nThe extension accepts only one option:\n\n- `postgres`: URI to the postgres database. If the context middleware is installed the postgres property will be added to the context.\n\n# Entities\n\nWhen creating entities there are more options:\n\n- `name`  : prefix for the action names that are created.\n- `table` : postgres table name with schema prefix if needed.\n- `scope` : multi-tenant support throw scoping.\n- `keys`  : object with key names and their types.\n- `model` : object with column names (camel-cased) and their Joi model.\n- `create` : if true the `<name>.create` action will be created. Can also be a generator function, which acts as middleware around the create action. The generator function should have the following signature: `function*(array[Object], next)` and `yield next(array)` where array is the possibly modified array of objects that was initially passed in.\n- `read`   : if true the `<name>.find.by<Key>` actions will be created for each key. Can also be a generator function, which acts as middleware around the read action. See `create` for more details.\n- `update` : if true the `<name>.update` action will be created. Can also be a generator function, which acts as middleware around the update action. See `create` for more details.\n- `delete` : if true the `<name>.delete` action will be created. Can also be a generator function, which acts as middleware around the delete action. See `create` for more details.\n- `merge` : if true the `<name>.merge` action will be created. Can also be a generator function, which acts as middleware around the merge action. Merge attempts perform update and will insert if the update failed. See `create` for more details.\n\n\n# Actions\n\nThe following actions are generated for you when using mserv-pgentity. Note that all functions support\nboth a single and batch modes. \n\n- `<name>.create` : In single mode the argument should be an object that satisfies `model`. The result will be the created object or an exception will be thrown. In batch mode, the argument should be an object with a `batch` key whose value is an array of objects satisfying `model`. Returns an array of objects. Objects that could not be created will return `{error$}` with some details.\n\n- `<name>.fetch.by<Key>` : There will be one such action for each specified key. The argument would be an object with the `<key>` field that is either a single value or an array of values (single or batch). The result is either null, a single object or an array of objects.\n\n- `<name>.fetch` :  Takes no arguments (or a scope argument) and returns all of the records.\n\n\n- `<name>.update` :  In single mode the argument should be an object that satisfies `model`. The result will be the updated object or an exception will be thrown. In batch mode, the argument should be an object with a `batch` key whose value is an array of objects satisfying `model`. Returns an array of objects. Objects that could not be created will return `{error$}` with some details.\n\n- `<name>.delete.by<Key>` :  There will be one such action for each specified key. The argument would be an object with the `<key>` field that is either a single value or an array of values (single or batch). The result is always the number of deleted records.\n\n\n- `<name>.delete.all<Key>` : Only if scoped, Takes no arguments and deletes all of the records within the scope. The result is the number of deleted records.\n\n\n\n# Scoping\n\nScoping was introduced to facilitate multi-tenancy. When scoped, all actions will require a key whose name is what was specified in the scope. For example if `scope: \'tenantId\'` then all actions will require a `tenantId`. If the scope key is not present then a `missingScope` exception is thrown.\n\n',
+21 silly publish   readmeFilename: 'README.md',
+21 silly publish   gitHead: 'be0a941107c0c7b570a2635fca5db0d81ad501ed',
+21 silly publish   _id: 'mserv-pgentity@0.2.11',
+21 silly publish   _shasum: 'cb8aa4c34e63a0fde3a266fc2e218b2ba2fe7896',
+21 silly publish   _from: '.' }
+22 verbose getPublishConfig undefined
+23 silly mapToRegistry name mserv-pgentity
+24 silly mapToRegistry using default registry
+25 silly mapToRegistry registry https://registry.npmjs.org/
+26 silly mapToRegistry data Result {
+26 silly mapToRegistry   raw: 'mserv-pgentity',
+26 silly mapToRegistry   scope: null,
+26 silly mapToRegistry   escapedName: 'mserv-pgentity',
+26 silly mapToRegistry   name: 'mserv-pgentity',
+26 silly mapToRegistry   rawSpec: '',
+26 silly mapToRegistry   spec: 'latest',
+26 silly mapToRegistry   type: 'tag' }
+27 silly mapToRegistry uri https://registry.npmjs.org/mserv-pgentity
+28 verbose publish registryBase https://registry.npmjs.org/
+29 silly publish uploading /Users/eric/.npm/mserv-pgentity/0.2.11/package.tgz
+30 verbose request uri https://registry.npmjs.org/mserv-pgentity
+31 verbose request sending authorization for write operation
+32 info attempt registry request try #1 at 10:07:03 PM
+33 verbose request using bearer token for auth
+34 verbose request id 37b23407c3d38ad3
+35 http request PUT https://registry.npmjs.org/mserv-pgentity
+36 http 403 https://registry.npmjs.org/mserv-pgentity
+37 verbose headers { 'content-type': 'application/json',
+37 verbose headers   'cache-control': 'max-age=300',
+37 verbose headers   'content-length': '96',
+37 verbose headers   'accept-ranges': 'bytes',
+37 verbose headers   date: 'Tue, 29 Nov 2016 21:07:04 GMT',
+37 verbose headers   via: '1.1 varnish',
+37 verbose headers   connection: 'keep-alive',
+37 verbose headers   'x-served-by': 'cache-fra1232-FRA',
+37 verbose headers   'x-cache': 'MISS',
+37 verbose headers   'x-cache-hits': '0',
+37 verbose headers   'x-timer': 'S1480453623.027211,VS0,VE1392',
+37 verbose headers   vary: 'Accept-Encoding' }
+38 verbose request invalidating /Users/eric/.npm/registry.npmjs.org/mserv-pgentity on PUT
+39 error publish Failed PUT 403
+40 verbose stack Error: "You cannot publish over the previously published version 0.2.11." : mserv-pgentity
+40 verbose stack     at makeError (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:302:12)
+40 verbose stack     at CachingRegistryClient.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:290:14)
+40 verbose stack     at Request._callback (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:210:14)
+40 verbose stack     at Request.self.callback (/usr/local/lib/node_modules/npm/node_modules/request/request.js:187:22)
+40 verbose stack     at emitTwo (events.js:106:13)
+40 verbose stack     at Request.emit (events.js:191:7)
+40 verbose stack     at Request.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/request/request.js:1048:10)
+40 verbose stack     at emitOne (events.js:96:13)
+40 verbose stack     at Request.emit (events.js:188:7)
+40 verbose stack     at IncomingMessage.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/request/request.js:969:12)
+41 verbose statusCode 403
+42 verbose pkgid mserv-pgentity
+43 verbose cwd /Users/eric/Development/nodejs/mserv-pgentity
+44 error Darwin 16.0.0
+45 error argv "/usr/local/bin/node" "/usr/local/bin/npm" "publish"
+46 error node v7.2.0
+47 error npm  v3.10.9
+48 error code E403
+49 error "You cannot publish over the previously published version 0.2.11." : mserv-pgentity
+50 error If you need help, you may report this error at:
+50 error     <https://github.com/npm/npm/issues>
+51 verbose exit [ 1, true ]

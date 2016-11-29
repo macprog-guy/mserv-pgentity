@@ -1,6 +1,6 @@
 {
   "name": "mserv-pgentity",
-  "version": "0.2.11",
+  "version": "0.2.20",
   "description": "ORM using mserv microservices.",
   "keywords": [
     "npm",
