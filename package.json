@@ -1,11 +1,10 @@
 {
   "name": "mserv-pgentity",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "description": "ORM using mserv microservices.",
   "keywords": [
     "npm",
     "mserv",
-    "active",
     "record",
     "orm",
     "entity"
@@ -39,17 +38,13 @@
     "mserv-validate": "^0.2.5"
   },
   "dependencies": {
-    "bluebird": "2.11.0",
+    "bluebird": "3.4.6",
     "case": "1.4.2",
-    "chai": "3.5.0",
-    "co": "^4.6.0",
-    "debug": "2.3.3",
-    "joi": "6.10.1",
+    "co": "4.6.0",
+    "debug": "^2.3.3",
+    "joi": "10.0.1",
     "lodash": "^3.10.1",
-    "mocha": "2.5.3",
-    "mserv": "0.2.20",
-    "mserv-validate": "0.2.9",
-    "pg-promise": "1.11.0",
+    "pg-promise": "5.4.5",
     "recase-keys": "^0.5.0"
   }
 }

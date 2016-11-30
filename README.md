@@ -3,7 +3,7 @@ mserv-pgentity is [mserv](https://github.com/macprog-guy/mserv) extension that s
 
 # Installation
 
-	$ npm i --save mserv-validate
+	$ npm i --save mserv-pgentity
 
 # Usage
 

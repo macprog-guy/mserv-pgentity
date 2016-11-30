@@ -88,20 +88,20 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 
 	before(function(done){
-		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, tags text[] default null, created_at timestamp default current_timestamp)').then(function(){
-				postgres.queryRaw('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
+		postgres.none('create extension if not exists pgcrypto').then(function(){
+			postgres.none('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, tags text[] default null, created_at timestamp default current_timestamp)').then(function(){
+				postgres.none('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
 			})
 		})		
 	})
 
 	after(function(done){
-		postgres.queryRaw('drop table todos; drop table scopedTodos').nodeify(done)
+		postgres.none('drop table todos; drop table scopedTodos').nodeify(done)
 	})
 
 	beforeEach(function(done){
 		hooks = [],
-		postgres.queryRaw('truncate table todos; truncate table scopedTodos').nodeify(done)
+		postgres.none('truncate table todos; truncate table scopedTodos').nodeify(done)
 	})
 
 
@@ -308,7 +308,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 	it('fetch should return many records', wrappedTest(function*(){
 
-		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
+		yield postgres.none(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
 
 		let recs = yield service.invoke('todo.fetch')
 
@@ -363,7 +363,7 @@ describe('mserv-pgentity without mserv-validate', function(){
 
 	it('scoped fetch should return many records', wrappedTest(function*(){
 
-		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
+		yield postgres.none(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
 
 		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:1})
 
@@ -816,19 +816,19 @@ describe('mserv-pgentity with mserv-validate', function(){
 
 
 	before(function(done){
-		postgres.queryRaw('create extension if not exists pgcrypto').then(function(){
-			postgres.queryRaw('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').then(function(){
-				postgres.queryRaw('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
+		postgres.none('create extension if not exists pgcrypto').then(function(){
+			postgres.none('create table if not exists todos (id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').then(function(){
+				postgres.none('create table if not exists scopedTodos (owner_id int, id  uuid not null primary key default gen_random_uuid(), name text not null, done boolean default false, created_at timestamp default current_timestamp)').nodeify(done)
 			})
 		})		
 	})
 
 	after(function(done){
-		postgres.queryRaw('drop table todos; drop table scopedTodos').nodeify(done)
+		postgres.none('drop table todos; drop table scopedTodos').nodeify(done)
 	})
 
 	beforeEach(function(done){
-		postgres.queryRaw('truncate table todos; truncate table scopedTodos').nodeify(done)
+		postgres.none('truncate table todos; truncate table scopedTodos').nodeify(done)
 	})
 
 
@@ -1000,7 +1000,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 
 	it('fetch should return many records', wrappedTest(function*(){
 
-		yield postgres.queryRaw(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
+		yield postgres.none(`insert into todos (name, done) values ('item1',false),('item2',true),('item3',false)`)
 
 		let recs = yield service.invoke('todo.fetch')
 		should.exist(recs)
@@ -1055,7 +1055,7 @@ describe('mserv-pgentity with mserv-validate', function(){
 
 	it('scoped fetch should return many records', wrappedTest(function*(){
 
-		yield postgres.queryRaw(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
+		yield postgres.none(`insert into scopedTodos (owner_id, name, done) values (1,'item1',false),(1,'item2',true),(2,'item3',false),(2,'item4',false)`)
 
 		let recs = yield service.invoke('scopedTodo.fetch', {ownerId:1})
 
