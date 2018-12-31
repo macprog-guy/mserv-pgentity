@@ -1,3 +1,6 @@
+# NOT MAINTAINED ANYMORE!
+If you would like to own this project I can transfer it to you along with all the other related projects.
+
 # Introduction
 mserv-pgentity is [mserv](https://github.com/macprog-guy/mserv) extension that simplifies creating CRUD like actions for postgres-backed data entities. The middleware assumes that [mserv-validate](https://github.com/macprog-guy/mserv-validate) is present and the postgres client is [pg-promise](https://github.com/vitaly-t/pg-promise).
 
